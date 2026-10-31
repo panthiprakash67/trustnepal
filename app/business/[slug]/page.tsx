@@ -1,0 +1,577 @@
+
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "../../../lib/supabase";
+
+type Business = {
+  id: number;
+  name: string;
+  slug: string;
+  category_id: number;
+  description: string | null;
+  location: string | null;
+  website: string | null;
+  categoryName: string;
+};
+
+type Review = {
+  id: number;
+  user_id: string;
+  rating: number;
+  title: string | null;
+  review_text: string | null;
+  created_at: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+export default function BusinessProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-gray-50">
+          <p className="text-lg font-medium text-gray-600">
+            Loading business profile...
+          </p>
+        </main>
+      }
+    >
+      <BusinessProfileContent />
+    </Suspense>
+  );
+}
+
+function BusinessProfileContent() {
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
+
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const [rating, setRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    async function checkUser() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setUserId(session?.user.id ?? null);
+      setAuthLoading(false);
+    }
+
+    checkUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function loadReviews(businessId: number) {
+    // Only approved reviews are displayed publicly.
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, user_id, rating, title, review_text, created_at")
+      .eq("business_id", businessId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const reviewRows = data ?? [];
+
+    if (reviewRows.length === 0) {
+      setReviews([]);
+      return;
+    }
+
+    const userIds = [
+      ...new Set(reviewRows.map((review) => review.user_id)),
+    ];
+
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, avatar_url")
+      .in("user_id", userIds);
+
+    if (profileError) throw profileError;
+
+    const profileMap = new Map(
+      (profileData ?? []).map((profile) => [
+        profile.user_id,
+        {
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+        },
+      ])
+    );
+
+    const reviewsWithProfiles: Review[] = reviewRows.map((review) => {
+      const profile = profileMap.get(review.user_id);
+
+      return {
+        ...review,
+        full_name: profile?.full_name ?? null,
+        avatar_url: profile?.avatar_url ?? null,
+      };
+    });
+
+    setReviews(reviewsWithProfiles);
+  }
+
+  useEffect(() => {
+    async function loadBusiness() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const { data: businessData, error: businessError } =
+          await supabase
+            .from("businesses")
+            .select(
+              "id, name, slug, category_id, description, location, website"
+            )
+            .eq("slug", slug)
+            .maybeSingle();
+
+        if (businessError) throw businessError;
+
+        if (!businessData) {
+          setBusiness(null);
+          setError("This business could not be found.");
+          return;
+        }
+
+        const { data: categoryData } = await supabase
+          .from("categories")
+          .select("name")
+          .eq("id", businessData.category_id)
+          .maybeSingle();
+
+        setBusiness({
+          ...businessData,
+          categoryName: categoryData?.name ?? "Other",
+        });
+
+        await loadReviews(businessData.id);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load business information."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (slug) {
+      loadBusiness();
+    }
+  }, [slug]);
+
+  async function handleReviewSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    setSubmitMessage("");
+    setSubmitError("");
+
+    if (!userId) {
+      setSubmitError("Please login before submitting a review.");
+      return;
+    }
+
+    if (!business) {
+      setSubmitError("Business information is not available.");
+      return;
+    }
+
+    if (!reviewTitle.trim() || !reviewText.trim()) {
+      setSubmitError("Please fill in both the title and review.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const { error: insertError } = await supabase
+        .from("reviews")
+        .insert({
+          business_id: business.id,
+          user_id: userId,
+          rating,
+          title: reviewTitle.trim(),
+          review_text: reviewText.trim(),
+        });
+
+      if (insertError) throw insertError;
+
+      // Refresh approved reviews only.
+      await loadReviews(business.id);
+
+      setRating(5);
+      setReviewTitle("");
+      setReviewText("");
+
+      setSubmitMessage(
+        "Your review has been submitted and is awaiting moderation. It will appear publicly after approval."
+      );
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Unable to submit your review. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((total, review) => total + review.rating, 0) /
+        reviews.length
+      : 0;
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-lg font-medium text-gray-600">
+          Loading business profile...
+        </p>
+      </main>
+    );
+  }
+
+  if (!business) {
+    return (
+      <main className="min-h-screen bg-gray-50 px-4 py-20 text-center">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Business not found
+        </h1>
+        <p className="mt-3 text-gray-600">
+          {error || "This business is not available."}
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-block rounded-lg bg-green-700 px-6 py-3 font-semibold text-white"
+        >
+          Back to Homepage
+        </Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
+          <Link href="/" className="text-2xl font-extrabold text-green-700">
+            TrustNepal
+          </Link>
+
+          <Link
+            href="/"
+            className="text-sm font-semibold text-gray-600 hover:text-green-700"
+          >
+            ← Back to Homepage
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-5 py-10">
+        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-10">
+          <span className="inline-block rounded-full bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+            {business.categoryName}
+          </span>
+
+          <h1 className="mt-5 text-3xl font-extrabold text-gray-900 md:text-4xl">
+            {business.name}
+          </h1>
+
+          {business.location && (
+            <p className="mt-3 text-gray-600">
+              📍 {business.location}
+            </p>
+          )}
+
+          {business.description && (
+            <p className="mt-5 max-w-3xl leading-7 text-gray-600">
+              {business.description}
+            </p>
+          )}
+
+          {business.website && (
+            <p className="mt-4">
+              <a
+                href={business.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-green-700 hover:underline"
+              >
+                Visit Website ↗
+              </a>
+            </p>
+          )}
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl bg-green-50 p-5">
+              <p className="text-sm font-medium text-gray-600">
+                Average Rating
+              </p>
+              <p className="mt-2 text-3xl font-extrabold text-green-700">
+                {reviews.length > 0 ? averageRating.toFixed(1) : "—"}
+                <span className="ml-2 text-xl text-yellow-500">
+                  {reviews.length > 0 ? "★" : ""}
+                </span>
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Out of 5 stars
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-5">
+              <p className="text-sm font-medium text-gray-600">
+                Total Reviews
+              </p>
+              <p className="mt-2 text-3xl font-extrabold text-gray-900">
+                {reviews.length}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Approved community reviews
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            Write a Review
+          </h2>
+
+          <p className="mt-2 text-gray-500">
+            Share your honest experience with {business.name}.
+          </p>
+
+          {authLoading ? (
+            <p className="mt-6 text-gray-500">
+              Checking your login status...
+            </p>
+          ) : !userId ? (
+            <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center">
+              <p className="text-gray-700">
+                Please login to write a review.
+              </p>
+
+              <Link
+                href="/auth"
+                className="mt-4 inline-block rounded-lg bg-green-700 px-6 py-3 font-semibold text-white hover:bg-green-800"
+              >
+                Login to Continue
+              </Link>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleReviewSubmit}
+              className="mt-6 space-y-5"
+            >
+              <div>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Your Rating
+                </label>
+
+                <div className="mt-3 flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      aria-label={`Rate ${star} out of 5 stars`}
+                      className={`text-4xl transition ${
+                        star <= rating
+                          ? "text-yellow-400"
+                          : "text-gray-300"
+                      } hover:scale-110`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  {rating} out of 5 stars
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reviewTitle"
+                  className="mb-2 block text-sm font-semibold text-gray-700"
+                >
+                  Review Title
+                </label>
+
+                <input
+                  id="reviewTitle"
+                  type="text"
+                  required
+                  maxLength={150}
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  placeholder="Summarize your experience"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-green-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reviewText"
+                  className="mb-2 block text-sm font-semibold text-gray-700"
+                >
+                  Your Review
+                </label>
+
+                <textarea
+                  id="reviewText"
+                  required
+                  minLength={5}
+                  maxLength={5000}
+                  rows={5}
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Tell others about your experience..."
+                  className="w-full resize-y rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-green-600"
+                />
+              </div>
+
+              {submitError && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {submitError}
+                </p>
+              )}
+
+              {submitMessage && (
+                <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                  {submitMessage}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-green-700 px-7 py-3 font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "Submitting..." : "Submit Review"}
+              </button>
+            </form>
+          )}
+        </section>
+
+        <section className="mt-10">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-2xl font-extrabold text-gray-900">
+              Customer Reviews
+            </h2>
+            <span className="text-sm text-gray-500">
+              {reviews.length} reviews
+            </span>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <div className="text-4xl">⭐</div>
+              <h3 className="mt-4 text-xl font-bold text-gray-900">
+                No approved reviews yet
+              </h3>
+              <p className="mt-2 text-gray-500">
+                Be the first person to share an experience with this business.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <article
+                  key={review.id}
+                  className="rounded-xl border border-gray-200 bg-white p-6"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {review.avatar_url ? (
+                        <img
+                          src={review.avatar_url}
+                          alt={review.full_name || "Reviewer"}
+                          className="h-12 w-12 rounded-full border border-gray-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl text-green-700">
+                          {review.full_name?.trim()
+                            ? review.full_name.trim().charAt(0).toUpperCase()
+                            : "👤"}
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="font-bold text-gray-900">
+                          {review.full_name || "TrustNepal Member"}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {review.title || "Customer Review"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="rounded-lg bg-yellow-50 px-3 py-2 font-bold text-yellow-700">
+                      {"★".repeat(review.rating)}
+                      {"☆".repeat(5 - review.rating)}
+                    </span>
+                  </div>
+
+                  {review.review_text && (
+                    <p className="mt-4 leading-7 text-gray-600">
+                      {review.review_text}
+                    </p>
+                  )}
+
+                  <p className="mt-4 text-xs text-gray-400">
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/"
+            className="font-semibold text-green-700 hover:underline"
+          >
+            ← Explore more businesses on TrustNepal
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
