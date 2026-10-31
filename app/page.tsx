@@ -6,14 +6,14 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 const categories = [
-  { name: "All", label: "All Categories", icon: "âœ¨" },
-  { name: "Products", label: "Products", icon: "ðŸ“±" },
-  { name: "Movies", label: "Movies", icon: "ðŸŽ¬" },
-  { name: "Hotels", label: "Hotels", icon: "ðŸ¨" },
-  { name: "Restaurants", label: "Restaurants", icon: "ðŸ½ï¸" },
-  { name: "Education", label: "Education", icon: "ðŸŽ“" },
-  { name: "Health", label: "Health", icon: "ðŸ¥" },
-  { name: "Services", label: "Services", icon: "ðŸ¢" },
+  { name: "All", label: "All Categories", icon: "\u2728" },
+  { name: "Products", label: "Products", icon: "\u{1F4F1}" },
+  { name: "Movies", label: "Movies", icon: "\u{1F3AC}" },
+  { name: "Hotels", label: "Hotels", icon: "\u{1F3E8}" },
+  { name: "Restaurants", label: "Restaurants", icon: "\u{1F37D}" },
+  { name: "Education", label: "Education", icon: "\u{1F393}" },
+  { name: "Health", label: "Health", icon: "\u{1F3E5}" },
+  { name: "Services", label: "Services", icon: "\u{1F3E2}" },
   { name: "Finance", label: "Finance", icon: "\u{1F4B0}" },
 ];
 
@@ -31,20 +31,20 @@ type Business = {
 };
 
 const categoryIcons: Record<string, string> = {
-  Products: "ðŸ“±",
-  Movies: "ðŸŽ¬",
-  Hotels: "ðŸ¨",
-  Restaurants: "ðŸ½ï¸",
-  Education: "ðŸŽ“",
-  Health: "ðŸ¥",
-  Services: "ðŸ¢",
+  Products: "\u{1F4F1}",
+  Movies: "\u{1F3AC}",
+  Hotels: "\u{1F3E8}",
+  Restaurants: "\u{1F37D}",
+  Education: "\u{1F393}",
+  Health: "\u{1F3E5}",
+  Services: "\u{1F3E2}",
   Finance: "\u{1F4B0}",
 };
 
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="tracking-wide text-amber-400">â˜…â˜…â˜…â˜…â˜…</span>
+      <span className="tracking-wide text-amber-400">{"\u2605\u2605\u2605\u2605\u2605"}</span>
       <span className="text-sm font-bold text-gray-800">
         {rating.toFixed(1)}
       </span>
@@ -287,7 +287,7 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-7xl px-5 py-20 text-center md:py-28">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-bold text-green-800 shadow-sm">
-            ðŸ‡³ðŸ‡µ Made for Nepal, Powered by People
+            {"\u{1F1F3}\u{1F1F5}"} Made for Nepal, Powered by People
           </div>
 
           <h2 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-tight text-gray-900 md:text-6xl">
@@ -304,7 +304,7 @@ export default function Home() {
           {/* SEARCH */}
           <div className="mx-auto mt-10 flex max-w-2xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-green-900/10 sm:flex-row sm:items-center">
             <div className="flex flex-1 items-center gap-3 px-4">
-              <span className="text-xl">ðŸ”</span>
+              <span className="text-xl">{"\u{1F50D}"}</span>
 
               <input
                 type="text"
@@ -359,10 +359,10 @@ export default function Home() {
       <section className="border-b border-gray-100 bg-white">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-5 py-9 text-center md:grid-cols-4">
           {[
-            ["ðŸ‡³ðŸ‡µ", "Built for Nepal"],
-            ["â­", "Honest Ratings"],
-            ["ðŸ¤", "Community Driven"],
-            ["ðŸ”", "Better Decisions"],
+            ["\u{1F1F3}\u{1F1F5}", "Built for Nepal"],
+            ["\u{1F31F}", "Honest Reviews"],
+            ["\u{1F465}", "Our Community"],
+            ["\u{1F4A1}", "Better Decisions"],
           ].map(([icon, title]) => (
             <div key={title}>
               <div className="text-2xl">{icon}</div>
@@ -496,7 +496,7 @@ export default function Home() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 text-3xl">
-                      {categoryIcons[item.categoryName] ?? "ðŸ¢"}
+                      {categoryIcons[item.categoryName] ?? "\u{1F3E2}"}
                     </div>
 
                     <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
@@ -509,7 +509,7 @@ export default function Home() {
                   </h3>
 
                   <p className="mt-1 text-sm text-gray-400">
-                    ðŸ“ {item.location || "Location not provided"}
+                    {"\u{1F4CD}"} {item.location || "Location not provided"}
                   </p>
 
                   <p className="mt-4 min-h-10 text-sm leading-6 text-gray-500">
@@ -533,7 +533,7 @@ export default function Home() {
                     </div>
 
                     <span className="rounded-full bg-green-50 px-4 py-2 text-xs font-bold text-green-800">
-                      View Profile â†’
+                      View Profile {"\u2192"}
                     </span>
                   </div>
                 </Link>
@@ -541,7 +541,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="rounded-2xl border border-gray-100 bg-white py-16 text-center">
-              <div className="text-5xl">ðŸ”Ž</div>
+              <div className="text-5xl">{"\u{1F50E}"}</div>
 
               <h3 className="mt-4 text-xl font-bold">
                 No businesses found
@@ -568,7 +568,7 @@ export default function Home() {
       {/* CALL TO ACTION */}
       <section className="bg-green-800 px-5 py-20 text-center text-white">
         <div className="mx-auto max-w-3xl">
-          <div className="text-5xl">â­</div>
+          <div className="text-5xl">{"\u{1F4AC}"}</div>
 
           <h2 className="mt-6 text-3xl font-black md:text-4xl">
             Your Experience Matters.
@@ -584,8 +584,8 @@ export default function Home() {
             className="mt-8 inline-block rounded-full bg-white px-8 py-4 font-extrabold text-green-800 shadow-lg transition hover:bg-green-50"
           >
             {userEmail
-              ? "Explore TrustNepal â†’"
-              : "Join TrustNepal Today â†’"}
+              ? "Explore TrustNepal \u2192"
+              : "Join TrustNepal Today \u2192"}
           </a>
         </div>
       </section>
@@ -616,7 +616,7 @@ export default function Home() {
             </p>
 
             <p className="mt-5 text-sm font-extrabold text-green-900">
-              ðŸ‡³ðŸ‡µ Proudly made for Nepal.
+              {"\u{1F1F3}\u{1F1F5}"} Proudly made for Nepal.
             </p>
           </div>
         </div>
@@ -650,7 +650,7 @@ export default function Home() {
           </div>
 
           <p className="text-xs text-gray-500">
-            Â© 2026 TrustNepal. All rights reserved.
+            {"\u00A9"} 2026 TrustNepal. All rights reserved.
           </p>
         </div>
       </footer>
