@@ -6,14 +6,15 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 const categories = [
-  { name: "All", label: "All Categories", icon: "✨" },
-  { name: "Products", label: "Products", icon: "📱" },
-  { name: "Movies", label: "Movies", icon: "🎬" },
-  { name: "Hotels", label: "Hotels", icon: "🏨" },
-  { name: "Restaurants", label: "Restaurants", icon: "🍽️" },
-  { name: "Education", label: "Education", icon: "🎓" },
-  { name: "Health", label: "Health", icon: "🏥" },
-  { name: "Services", label: "Services", icon: "🏢" },
+  { name: "All", label: "All Categories", icon: "âœ¨" },
+  { name: "Products", label: "Products", icon: "ðŸ“±" },
+  { name: "Movies", label: "Movies", icon: "ðŸŽ¬" },
+  { name: "Hotels", label: "Hotels", icon: "ðŸ¨" },
+  { name: "Restaurants", label: "Restaurants", icon: "ðŸ½ï¸" },
+  { name: "Education", label: "Education", icon: "ðŸŽ“" },
+  { name: "Health", label: "Health", icon: "ðŸ¥" },
+  { name: "Services", label: "Services", icon: "ðŸ¢" },
+  { name: "Finance", label: "Finance", icon: "\u{1F4B0}" },
 ];
 
 type Business = {
@@ -30,19 +31,20 @@ type Business = {
 };
 
 const categoryIcons: Record<string, string> = {
-  Products: "📱",
-  Movies: "🎬",
-  Hotels: "🏨",
-  Restaurants: "🍽️",
-  Education: "🎓",
-  Health: "🏥",
-  Services: "🏢",
+  Products: "ðŸ“±",
+  Movies: "ðŸŽ¬",
+  Hotels: "ðŸ¨",
+  Restaurants: "ðŸ½ï¸",
+  Education: "ðŸŽ“",
+  Health: "ðŸ¥",
+  Services: "ðŸ¢",
+  Finance: "\u{1F4B0}",
 };
 
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="tracking-wide text-amber-400">★★★★★</span>
+      <span className="tracking-wide text-amber-400">â˜…â˜…â˜…â˜…â˜…</span>
       <span className="text-sm font-bold text-gray-800">
         {rating.toFixed(1)}
       </span>
@@ -285,7 +287,7 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-7xl px-5 py-20 text-center md:py-28">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-bold text-green-800 shadow-sm">
-            🇳🇵 Made for Nepal, Powered by People
+            ðŸ‡³ðŸ‡µ Made for Nepal, Powered by People
           </div>
 
           <h2 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-tight text-gray-900 md:text-6xl">
@@ -302,7 +304,7 @@ export default function Home() {
           {/* SEARCH */}
           <div className="mx-auto mt-10 flex max-w-2xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-green-900/10 sm:flex-row sm:items-center">
             <div className="flex flex-1 items-center gap-3 px-4">
-              <span className="text-xl">🔍</span>
+              <span className="text-xl">ðŸ”</span>
 
               <input
                 type="text"
@@ -357,10 +359,10 @@ export default function Home() {
       <section className="border-b border-gray-100 bg-white">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-5 py-9 text-center md:grid-cols-4">
           {[
-            ["🇳🇵", "Built for Nepal"],
-            ["⭐", "Honest Ratings"],
-            ["🤝", "Community Driven"],
-            ["🔍", "Better Decisions"],
+            ["ðŸ‡³ðŸ‡µ", "Built for Nepal"],
+            ["â­", "Honest Ratings"],
+            ["ðŸ¤", "Community Driven"],
+            ["ðŸ”", "Better Decisions"],
           ].map(([icon, title]) => (
             <div key={title}>
               <div className="text-2xl">{icon}</div>
@@ -388,7 +390,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
           {categories
             .filter((item) => item.name !== "All")
             .map((item) => (
@@ -494,7 +496,7 @@ export default function Home() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 text-3xl">
-                      {categoryIcons[item.categoryName] ?? "🏢"}
+                      {categoryIcons[item.categoryName] ?? "ðŸ¢"}
                     </div>
 
                     <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
@@ -507,7 +509,7 @@ export default function Home() {
                   </h3>
 
                   <p className="mt-1 text-sm text-gray-400">
-                    📍 {item.location || "Location not provided"}
+                    ðŸ“ {item.location || "Location not provided"}
                   </p>
 
                   <p className="mt-4 min-h-10 text-sm leading-6 text-gray-500">
@@ -531,7 +533,7 @@ export default function Home() {
                     </div>
 
                     <span className="rounded-full bg-green-50 px-4 py-2 text-xs font-bold text-green-800">
-                      View Profile →
+                      View Profile â†’
                     </span>
                   </div>
                 </Link>
@@ -539,7 +541,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="rounded-2xl border border-gray-100 bg-white py-16 text-center">
-              <div className="text-5xl">🔎</div>
+              <div className="text-5xl">ðŸ”Ž</div>
 
               <h3 className="mt-4 text-xl font-bold">
                 No businesses found
@@ -566,7 +568,7 @@ export default function Home() {
       {/* CALL TO ACTION */}
       <section className="bg-green-800 px-5 py-20 text-center text-white">
         <div className="mx-auto max-w-3xl">
-          <div className="text-5xl">⭐</div>
+          <div className="text-5xl">â­</div>
 
           <h2 className="mt-6 text-3xl font-black md:text-4xl">
             Your Experience Matters.
@@ -582,8 +584,8 @@ export default function Home() {
             className="mt-8 inline-block rounded-full bg-white px-8 py-4 font-extrabold text-green-800 shadow-lg transition hover:bg-green-50"
           >
             {userEmail
-              ? "Explore TrustNepal →"
-              : "Join TrustNepal Today →"}
+              ? "Explore TrustNepal â†’"
+              : "Join TrustNepal Today â†’"}
           </a>
         </div>
       </section>
@@ -614,7 +616,7 @@ export default function Home() {
             </p>
 
             <p className="mt-5 text-sm font-extrabold text-green-900">
-              🇳🇵 Proudly made for Nepal.
+              ðŸ‡³ðŸ‡µ Proudly made for Nepal.
             </p>
           </div>
         </div>
@@ -648,10 +650,11 @@ export default function Home() {
           </div>
 
           <p className="text-xs text-gray-500">
-            © 2026 TrustNepal. All rights reserved.
+            Â© 2026 TrustNepal. All rights reserved.
           </p>
         </div>
       </footer>
     </main>
   );
 }
+
