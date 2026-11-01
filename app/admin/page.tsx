@@ -19,6 +19,8 @@ type Business = {
   description: string | null;
   location: string | null;
   website: string | null;
+  email: string | null;
+  phone: string | null;
 };
 
 type UserRole = {
@@ -75,6 +77,8 @@ export default function AdminPage() {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [website, setWebsite] = useState("");
+  const [companyEmail, setCompanyEmail] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -162,7 +166,7 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website")
+      .select("id, name, slug, category_id, description, location, website, email, phone")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -306,6 +310,8 @@ export default function AdminPage() {
     setDescription("");
     setLocation("");
     setWebsite("");
+    setCompanyEmail("");
+    setCompanyPhone("");
     setEditingId(null);
   }
 
@@ -316,6 +322,8 @@ export default function AdminPage() {
     setDescription(company.description ?? "");
     setLocation(company.location ?? "");
     setWebsite(company.website ?? "");
+    setCompanyEmail(company.email ?? "");
+    setCompanyPhone(company.phone ?? "");
 
     setActiveTab("companies");
 
@@ -344,6 +352,8 @@ export default function AdminPage() {
         description: description.trim() || null,
         location: location.trim() || null,
         website: website.trim() || null,
+        email: companyEmail.trim() || null,
+        phone: companyPhone.trim() || null,
       };
 
       if (editingId !== null) {
@@ -1016,6 +1026,32 @@ export default function AdminPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Official Company Email
+                    </label>
+                    <input
+                      type="email"
+                      value={companyEmail}
+                      onChange={(e) => setCompanyEmail(e.target.value)}
+                      placeholder="e.g. info@example.com"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Official Contact Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={companyPhone}
+                      onChange={(e) => setCompanyPhone(e.target.value)}
+                      placeholder="e.g. +977-1-1234567"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
                       Website
                     </label>
                     <input
@@ -1083,6 +1119,12 @@ export default function AdminPage() {
                           {categories.find((c) => c.id === company.category_id)?.name ?? "Uncategorized"}
                           {company.location ? ` • ${company.location}` : ""}
                         </p>
+                        {company.email && (
+                          <p className="mt-1 text-sm text-gray-600">Email: {company.email}</p>
+                        )}
+                        {company.phone && (
+                          <p className="mt-1 text-sm text-gray-600">Phone: {company.phone}</p>
+                        )}
                       </div>
 
                       <button

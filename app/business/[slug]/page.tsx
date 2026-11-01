@@ -14,6 +14,8 @@ type Business = {
   description: string | null;
   location: string | null;
   website: string | null;
+  email: string | null;
+  phone: string | null;
   categoryName: string;
 };
 
@@ -149,7 +151,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website"
+              "id, name, slug, category_id, description, location, website, email, phone"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -323,17 +325,52 @@ function BusinessProfileContent() {
             </p>
           )}
 
-          {business.website && (
-            <p className="mt-4">
-              <a
-                href={business.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-green-700 hover:underline"
-              >
-                Visit Website ↗
-              </a>
-            </p>
+          {(business.email || business.phone || business.website) && (
+            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <h2 className="text-lg font-bold text-gray-900">
+                Contact Information
+              </h2>
+
+              <div className="mt-3 space-y-3">
+                {business.phone && (
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Phone: </span>
+                    <a
+                      href={`tel:${business.phone.replace(/[^+\d]/g, "")}`}
+                      className="font-medium text-green-700 hover:underline"
+                    >
+                      {business.phone}
+                    </a>
+                  </p>
+                )}
+
+                {business.email && (
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Email: </span>
+                    <a
+                      href={`mailto:${business.email}`}
+                      className="font-medium text-green-700 hover:underline"
+                    >
+                      {business.email}
+                    </a>
+                  </p>
+                )}
+
+                {business.website && (
+                  <p className="text-gray-700">
+                    <span className="font-semibold">Website: </span>
+                    <a
+                      href={business.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-green-700 hover:underline"
+                    >
+                      Visit Official Website ↗
+                    </a>
+                  </p>
+                )}
+              </div>
+            </div>
           )}
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
