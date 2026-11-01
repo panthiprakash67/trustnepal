@@ -30,6 +30,164 @@ type Review = {
   avatar_url: string | null;
 };
 
+type Reply = {
+  id: number;
+  review_id: number;
+  user_id: string;
+  parent_reply_id: number | null;
+  reply_text: string;
+  created_at: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type ReplyTarget = {
+  reviewId: number;
+  parentReplyId: number | null;
+};
+
+type ReplyListProps = {
+  reviewId: number;
+  parentReplyId: number | null;
+  replies: Reply[];
+  userId: string | null;
+  activeTarget: ReplyTarget | null;
+  replyDraft: string;
+  submittingReply: boolean;
+  onReplyClick: (reviewId: number, parentReplyId: number | null) => void;
+  onDraftChange: (value: string) => void;
+  onSubmit: (reviewId: number, parentReplyId: number | null) => void;
+};
+
+function ReplyList({
+  reviewId,
+  parentReplyId,
+  replies,
+  userId,
+  activeTarget,
+  replyDraft,
+  submittingReply,
+  onReplyClick,
+  onDraftChange,
+  onSubmit,
+}: ReplyListProps) {
+  const childReplies = replies.filter(
+    (reply) => reply.parent_reply_id === parentReplyId
+  );
+
+  if (childReplies.length === 0) return null;
+
+  return (
+    <div className={parentReplyId === null ? "mt-4 space-y-4" : "mt-4 ml-5 space-y-4 border-l-2 border-gray-200 pl-4"}>
+      {childReplies.map((reply) => {
+        const isActive =
+          activeTarget?.reviewId === reviewId &&
+          activeTarget?.parentReplyId === reply.id;
+
+        return (
+          <article key={reply.id} className="rounded-xl bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              {reply.avatar_url ? (
+                <img
+                  src={reply.avatar_url}
+                  alt={reply.full_name || "User"}
+                  className="h-9 w-9 rounded-full border object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 font-bold text-green-700">
+                  {reply.full_name?.trim()
+                    ? reply.full_name.trim().charAt(0).toUpperCase()
+                    : "👤"}
+                </div>
+              )}
+
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900">
+                  {reply.full_name || "TrustNepal Member"}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {new Date(reply.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 whitespace-pre-wrap break-words leading-7 text-gray-700">
+              {reply.reply_text}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onReplyClick(reviewId, reply.id)}
+              className="mt-3 text-sm font-semibold text-green-700 hover:underline"
+            >
+              ↳ Reply
+            </button>
+
+            {isActive && (
+              <div className="mt-3 space-y-3">
+                {userId ? (
+                  <>
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) => onDraftChange(e.target.value)}
+                      maxLength={3000}
+                      rows={3}
+                      placeholder="Write your reply in Nepali or English..."
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none focus:border-green-600"
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={submittingReply || !replyDraft.trim()}
+                        onClick={() => onSubmit(reviewId, reply.id)}
+                        className="rounded-lg bg-green-700 px-5 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                      >
+                        {submittingReply ? "Sending..." : "Send Reply"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onReplyClick(reviewId, null)}
+                        className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg bg-white p-4 text-sm text-gray-700">
+                    Please login to reply.
+                    <Link
+                      href="/auth"
+                      className="ml-2 font-semibold text-green-700 hover:underline"
+                    >
+                      Login
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <ReplyList
+              reviewId={reviewId}
+              parentReplyId={reply.id}
+              replies={replies}
+              userId={userId}
+              activeTarget={activeTarget}
+              replyDraft={replyDraft}
+              submittingReply={submittingReply}
+              onReplyClick={onReplyClick}
+              onDraftChange={onDraftChange}
+              onSubmit={onSubmit}
+            />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function BusinessProfilePage() {
   return (
     <Suspense
@@ -52,6 +210,7 @@ function BusinessProfileContent() {
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,6 +223,13 @@ function BusinessProfileContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
+
+  const [activeReplyTarget, setActiveReplyTarget] =
+    useState<ReplyTarget | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [submittingReply, setSubmittingReply] = useState(false);
+  const [replyError, setReplyError] = useState("");
+  const [replyMessage, setReplyMessage] = useState("");
 
   useEffect(() => {
     async function checkUser() {
@@ -90,7 +256,6 @@ function BusinessProfileContent() {
   }, []);
 
   async function loadReviews(businessId: number) {
-    // Only approved reviews are displayed publicly.
     const { data, error } = await supabase
       .from("reviews")
       .select("id, user_id, rating, title, review_text, created_at")
@@ -104,17 +269,18 @@ function BusinessProfileContent() {
 
     if (reviewRows.length === 0) {
       setReviews([]);
+      setReplies([]);
       return;
     }
 
-    const userIds = [
+    const reviewUserIds = [
       ...new Set(reviewRows.map((review) => review.user_id)),
     ];
 
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("user_id, full_name, avatar_url")
-      .in("user_id", userIds);
+      .in("user_id", reviewUserIds);
 
     if (profileError) throw profileError;
 
@@ -139,6 +305,65 @@ function BusinessProfileContent() {
     });
 
     setReviews(reviewsWithProfiles);
+
+    await loadReplies(reviewRows.map((review) => review.id));
+  }
+
+  async function loadReplies(reviewIds: number[]) {
+    if (reviewIds.length === 0) {
+      setReplies([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("review_replies")
+      .select(
+        "id, review_id, user_id, parent_reply_id, reply_text, created_at"
+      )
+      .in("review_id", reviewIds)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    const replyRows = data ?? [];
+
+    if (replyRows.length === 0) {
+      setReplies([]);
+      return;
+    }
+
+    const replyUserIds = [
+      ...new Set(replyRows.map((reply) => reply.user_id)),
+    ];
+
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, avatar_url")
+      .in("user_id", replyUserIds);
+
+    if (profileError) throw profileError;
+
+    const profileMap = new Map(
+      (profileData ?? []).map((profile) => [
+        profile.user_id,
+        {
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+        },
+      ])
+    );
+
+    const repliesWithProfiles: Reply[] = replyRows.map((reply) => {
+      const profile = profileMap.get(reply.user_id);
+
+      return {
+        ...reply,
+        full_name: profile?.full_name ?? null,
+        avatar_url: profile?.avatar_url ?? null,
+      };
+    });
+
+    setReplies(repliesWithProfiles);
   }
 
   useEffect(() => {
@@ -230,7 +455,6 @@ function BusinessProfileContent() {
 
       if (insertError) throw insertError;
 
-      // Refresh approved reviews only.
       await loadReviews(business.id);
 
       setRating(5);
@@ -248,6 +472,76 @@ function BusinessProfileContent() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function openReplyForm(reviewId: number, parentReplyId: number | null) {
+    setReplyError("");
+    setReplyMessage("");
+
+    if (
+      activeReplyTarget?.reviewId === reviewId &&
+      activeReplyTarget?.parentReplyId === parentReplyId
+    ) {
+      setActiveReplyTarget(null);
+      setReplyDraft("");
+      return;
+    }
+
+    setActiveReplyTarget({ reviewId, parentReplyId });
+    setReplyDraft("");
+  }
+
+  async function handleReplySubmit(
+    reviewId: number,
+    parentReplyId: number | null
+  ) {
+    setReplyError("");
+    setReplyMessage("");
+
+    if (!userId) {
+      setReplyError("Please login before replying.");
+      return;
+    }
+
+    if (!replyDraft.trim()) {
+      setReplyError("Please write a reply first.");
+      return;
+    }
+
+    if (replyDraft.trim().length > 3000) {
+      setReplyError("Your reply cannot exceed 3000 characters.");
+      return;
+    }
+
+    setSubmittingReply(true);
+
+    try {
+      const { error: insertError } = await supabase
+        .from("review_replies")
+        .insert({
+          review_id: reviewId,
+          user_id: userId,
+          parent_reply_id: parentReplyId,
+          reply_text: replyDraft.trim(),
+        });
+
+      if (insertError) throw insertError;
+
+      const approvedReviewIds = reviews.map((review) => review.id);
+      await loadReplies(approvedReviewIds);
+
+      setReplyDraft("");
+      setActiveReplyTarget(null);
+      setReplyMessage("Your reply has been posted successfully.");
+    } catch (err) {
+      setReplyError(
+        err instanceof Error
+          ? err.message
+          : "Unable to post your reply. Please try again."
+      );
+    } finally {
+      setSubmittingReply(false);
     }
   }
 
@@ -548,55 +842,148 @@ function BusinessProfileContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              {reviews.map((review) => (
-                <article
-                  key={review.id}
-                  className="rounded-xl border border-gray-200 bg-white p-6"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {review.avatar_url ? (
-                        <img
-                          src={review.avatar_url}
-                          alt={review.full_name || "Reviewer"}
-                          className="h-12 w-12 rounded-full border border-gray-200 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl text-green-700">
-                          {review.full_name?.trim()
-                            ? review.full_name.trim().charAt(0).toUpperCase()
-                            : "👤"}
-                        </div>
-                      )}
+              {reviews.map((review) => {
+                const isReviewReplyActive =
+                  activeReplyTarget?.reviewId === review.id &&
+                  activeReplyTarget?.parentReplyId === null;
 
-                      <div>
-                        <p className="font-bold text-gray-900">
-                          {review.full_name || "TrustNepal Member"}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {review.title || "Customer Review"}
-                        </p>
+                return (
+                  <article
+                    key={review.id}
+                    className="rounded-xl border border-gray-200 bg-white p-6"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {review.avatar_url ? (
+                          <img
+                            src={review.avatar_url}
+                            alt={review.full_name || "Reviewer"}
+                            className="h-12 w-12 rounded-full border border-gray-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl text-green-700">
+                            {review.full_name?.trim()
+                              ? review.full_name.trim().charAt(0).toUpperCase()
+                              : "👤"}
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {review.full_name || "TrustNepal Member"}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {review.title || "Customer Review"}
+                          </p>
+                        </div>
                       </div>
+
+                      <span className="rounded-lg bg-yellow-50 px-3 py-2 font-bold text-yellow-700">
+                        {"★".repeat(review.rating)}
+                        {"☆".repeat(5 - review.rating)}
+                      </span>
                     </div>
 
-                    <span className="rounded-lg bg-yellow-50 px-3 py-2 font-bold text-yellow-700">
-                      {"★".repeat(review.rating)}
-                      {"☆".repeat(5 - review.rating)}
-                    </span>
-                  </div>
+                    {review.review_text && (
+                      <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-gray-600">
+                        {review.review_text}
+                      </p>
+                    )}
 
-                  {review.review_text && (
-                    <p className="mt-4 leading-7 text-gray-600">
-                      {review.review_text}
+                    <p className="mt-4 text-xs text-gray-400">
+                      {new Date(review.created_at).toLocaleDateString()}
                     </p>
-                  )}
 
-                  <p className="mt-4 text-xs text-gray-400">
-                    {new Date(review.created_at).toLocaleDateString()}
-                  </p>
-                </article>
-              ))}
+                    <button
+                      type="button"
+                      onClick={() => openReplyForm(review.id, null)}
+                      className="mt-3 text-sm font-semibold text-green-700 hover:underline"
+                    >
+                      <span aria-hidden="true">↳ </span>Reply
+                    </button>
+
+                    {isReviewReplyActive && (
+                      <div className="mt-4 space-y-3">
+                        {authLoading ? (
+                          <p className="text-sm text-gray-500">
+                            Checking your login status...
+                          </p>
+                        ) : userId ? (
+                          <>
+                            <textarea
+                              value={replyDraft}
+                              onChange={(e) => setReplyDraft(e.target.value)}
+                              maxLength={3000}
+                              rows={3}
+                              placeholder="Write your reply in Nepali or English..."
+                              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-green-600"
+                            />
+
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={submittingReply || !replyDraft.trim()}
+                                onClick={() =>
+                                  handleReplySubmit(review.id, null)
+                                }
+                                className="rounded-lg bg-green-700 px-5 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                              >
+                                {submittingReply ? "Sending..." : "Send Reply"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openReplyForm(review.id, null)}
+                                className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+                            Please login to reply to this review.
+                            <Link
+                              href="/auth"
+                              className="ml-2 font-semibold text-green-700 hover:underline"
+                            >
+                              Login to Continue
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <ReplyList
+                      reviewId={review.id}
+                      parentReplyId={null}
+                      replies={replies.filter(
+                        (reply) => reply.review_id === review.id
+                      )}
+                      userId={userId}
+                      activeTarget={activeReplyTarget}
+                      replyDraft={replyDraft}
+                      submittingReply={submittingReply}
+                      onReplyClick={openReplyForm}
+                      onDraftChange={setReplyDraft}
+                      onSubmit={handleReplySubmit}
+                    />
+                  </article>
+                );
+              })}
             </div>
+          )}
+
+          {replyError && (
+            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {replyError}
+            </p>
+          )}
+
+          {replyMessage && (
+            <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+              {replyMessage}
+            </p>
           )}
         </section>
 
