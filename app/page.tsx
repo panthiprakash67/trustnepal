@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -340,6 +339,13 @@ export default function Home() {
     return index >= 0 ? t.categories[index] : name;
   };
 
+  function scrollToBusinesses() {
+    document.getElementById("trending")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <main className="min-h-screen bg-white text-gray-900">
       {/* HEADER */}
@@ -440,10 +446,12 @@ export default function Home() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  document.getElementById("trending")?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    scrollToBusinesses();
+                  }
                 }}
                 placeholder={t.searchPlaceholder}
                 className="h-12 w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
@@ -451,11 +459,7 @@ export default function Home() {
             </div>
 
             <button
-              onClick={() =>
-                document.getElementById("trending")?.scrollIntoView({
-                  behavior: "smooth",
-                })
-              }
+              onClick={scrollToBusinesses}
               className="rounded-xl bg-green-700 px-8 py-4 font-bold text-white transition hover:bg-green-800"
             >
               {t.search}
@@ -470,9 +474,7 @@ export default function Home() {
                   key={item}
                   onClick={() => {
                     setSearch(item === "Mobiles" ? "Products" : item);
-                    document.getElementById("trending")?.scrollIntoView({
-                      behavior: "smooth",
-                    });
+                    scrollToBusinesses();
                   }}
                   className="mx-1 font-semibold text-green-800 hover:underline"
                 >
@@ -524,9 +526,7 @@ export default function Home() {
                 key={item.name}
                 onClick={() => {
                   setActiveCategory(item.name);
-                  document.getElementById("trending")?.scrollIntoView({
-                    behavior: "smooth",
-                  });
+                  scrollToBusinesses();
                 }}
                 className={`group rounded-2xl border p-5 text-center transition hover:-translate-y-1 hover:border-green-300 hover:bg-green-50 hover:shadow-md ${
                   activeCategory === item.name

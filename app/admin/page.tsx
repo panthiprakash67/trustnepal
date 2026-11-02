@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { supabase } from "../../lib/supabase";
 
 type Category = {
@@ -61,6 +62,9 @@ export default function AdminPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [qrCompany, setQrCompany] = useState<Business | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrLoading, setQrLoading] = useState(false);
   const [roles, setRoles] = useState<UserRole[]>([]);
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -71,6 +75,11 @@ export default function AdminPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState("companies");
+
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyCategoryFilter, setCompanyCategoryFilter] = useState("all");
+  const [companyPage, setCompanyPage] = useState(1);
+  const companiesPerPage = 10;
 
   const [companyName, setCompanyName] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -290,6 +299,33 @@ export default function AdminPage() {
     }
   }
 
+  const filteredCompanies = businesses.filter((company) => {
+    const searchText = [
+      company.name,
+      company.slug,
+      company.location ?? "",
+      company.email ?? "",
+      company.phone ?? "",
+    ].join(" ").toLowerCase();
+
+    const matchesSearch = searchText.includes(companySearch.trim().toLowerCase());
+    const matchesCategory =
+      companyCategoryFilter === "all" ||
+      String(company.category_id) === companyCategoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalCompanyPages = Math.max(
+    1,
+    Math.ceil(filteredCompanies.length / companiesPerPage)
+  );
+
+  const paginatedCompanies = filteredCompanies.slice(
+    (companyPage - 1) * companiesPerPage,
+    companyPage * companiesPerPage
+  );
+
   function getCategoryCompanyCount(categoryId: number) {
     return businesses.filter(
       (company) => company.category_id === categoryId
@@ -331,6 +367,170 @@ export default function AdminPage() {
       top: 0,
       behavior: "smooth",
     });
+  }
+
+  async function generateCompanyQr(company: Business) {
+    setQrLoading(true);
+    setError("");
+
+    try {
+      const companyUrl = `https://trustnepal.vercel.app/business/${encodeURIComponent(company.slug)}`;
+      const dataUrl = await QRCode.toDataURL(companyUrl, {
+        width: 700,
+        margin: 3,
+        errorCorrectionLevel: "H",
+        color: { dark: "#000000", light: "#FFFFFF" },
+      });
+
+      setQrCompany(company);
+      setQrDataUrl(dataUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to generate QR code.");
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  async function downloadCompanyQr() {
+    if (!qrDataUrl || !qrCompany) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        throw new Error("Unable to create QR poster.");
+      }
+
+      const width = 1200;
+      const height = 1800;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const green = "#087A45";
+      const dark = "#17251D";
+      const muted = "#52635A";
+
+      ctx.fillStyle = "#F5F9F6";
+      ctx.fillRect(0, 0, width, height);
+
+      // TrustNepal header
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      ctx.roundRect(42, 42, 1116, 273, 32);
+      ctx.fill();
+
+      ctx.fillStyle = green;
+      ctx.fillRect(42, 42, 1116, 23);
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      ctx.fillStyle = green;
+      ctx.font = "bold 82px Arial";
+      ctx.fillText("TrustNepal", 600, 125);
+
+      ctx.fillStyle = muted;
+      ctx.font = "31px Arial";
+      ctx.fillText("Nepal's Trusted Review Platform.", 600, 205);
+
+      ctx.fillStyle = dark;
+      ctx.font = "bold 23px Arial";
+      ctx.fillText("REAL EXPERIENCES. TRUSTED DECISIONS.", 600, 270);
+
+      // Scan heading
+      ctx.fillStyle = green;
+      ctx.font = "bold 34px Arial";
+      ctx.fillText("SCAN TO REVIEW", 600, 365);
+
+      // Company name with automatic wrapping
+      const companyName = qrCompany.name || "Company";
+      const companyFont = "bold 40px Arial";
+      ctx.font = companyFont;
+
+      const words = companyName.split(/\s+/);
+      const lines = [];
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? currentLine + " " + word : word;
+
+        if (ctx.measureText(testLine).width <= 1080) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+
+      if (currentLine) lines.push(currentLine);
+
+      let companyY = 435;
+      ctx.fillStyle = dark;
+      ctx.font = companyFont;
+
+      for (const line of lines) {
+        ctx.fillText(line, 600, companyY);
+        companyY += 54;
+      }
+
+      // Load the original QR image without changing its destination
+      const qrImage = new Image();
+
+      await new Promise((resolve, reject) => {
+        qrImage.onload = resolve;
+        qrImage.onerror = () => reject(new Error("Unable to load QR image."));
+        qrImage.src = qrDataUrl;
+      });
+
+      // Large QR with a clear white quiet zone
+      const qrSize = 820;
+      const panelTop = companyY + 20;
+      const panelBottom = panelTop + qrSize + 52;
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = "#DCE8E0";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(145, panelTop, 910, qrSize + 52, 30);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(qrImage, 190, panelTop + 26, qrSize, qrSize);
+      ctx.imageSmoothingEnabled = true;
+
+      // Poster message
+      const footerY = panelBottom + 38;
+
+      ctx.fillStyle = dark;
+      ctx.font = "bold 28px Arial";
+      ctx.fillText("Scan to visit and review this company", 600, footerY);
+
+      ctx.fillStyle = muted;
+      ctx.font = "23px Arial";
+      ctx.fillText("Your experience matters. Share your review.", 600, footerY + 55);
+
+      // TrustNepal footer
+      ctx.fillStyle = green;
+      ctx.beginPath();
+      ctx.roundRect(42, height - 125, 1116, 83, 22);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 24px Arial";
+      ctx.fillText("TRUSTNEPAL  •  SHARE YOUR EXPERIENCE", 600, height - 83);
+
+      const link = document.createElement("a");
+      link.download = `${qrCompany.slug}-trustnepal-qr-poster.png`;
+      link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to download QR poster.");
+    }
   }
 
   async function saveCompany(e: React.FormEvent<HTMLFormElement>) {
@@ -617,7 +817,7 @@ export default function AdminPage() {
                             </p>
 
                             <div className="space-y-2">
-                              {categoryCompanies.map((company) => (
+                              {categoryCompanies.slice(0, 7).map((company) => (
                                 <button
                                   key={company.id}
                                   onClick={() => editCompany(company)}
@@ -630,6 +830,20 @@ export default function AdminPage() {
                                 </button>
                               ))}
                             </div>
+
+                            {categoryCompanies.length > 7 && (
+                              <button
+                                onClick={() => {
+                                  setCompanyCategoryFilter(String(category.id));
+                                  setCompanySearch("");
+                                  setCompanyPage(1);
+                                  setActiveTab("companies");
+                                }}
+                                className="mt-3 text-sm font-semibold text-green-700 hover:text-green-900"
+                              >
+                                View All {count} Companies →
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
@@ -1096,6 +1310,35 @@ export default function AdminPage() {
                   Manage companies listed on TrustNepal.
                 </p>
 
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    value={companySearch}
+                    onChange={(e) => {
+                      setCompanySearch(e.target.value);
+                      setCompanyPage(1);
+                    }}
+                    placeholder="Search companies..."
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black placeholder:text-gray-500 outline-none focus:border-green-600"
+                  />
+
+                  <select
+                    value={companyCategoryFilter}
+                    onChange={(e) => {
+                      setCompanyCategoryFilter(e.target.value);
+                      setCompanyPage(1);
+                    }}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black outline-none focus:border-green-600"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="mt-5 space-y-3">
                   {businesses.length === 0 && (
                     <p className="py-8 text-center text-gray-500">
@@ -1103,7 +1346,7 @@ export default function AdminPage() {
                     </p>
                   )}
 
-                  {businesses.map((company) => (
+                  {paginatedCompanies.map((company) => (
                     <div
                       key={company.id}
                       className="flex flex-col justify-between gap-3 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center"
@@ -1127,14 +1370,87 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => editCompany(company)}
-                        className="rounded-lg border border-green-700 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50"
-                      >
-                        Edit
-                      </button>
+                      <div className="flex flex-col items-start gap-3 sm:items-end">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => editCompany(company)}
+                            className="rounded-lg border border-green-700 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => generateCompanyQr(company)}
+                            disabled={qrLoading}
+                            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                          >
+                            {qrLoading && qrCompany?.id === company.id ? "Generating..." : "Generate QR"}
+                          </button>
+                        </div>
+
+                        {qrCompany?.id === company.id && qrDataUrl && (
+                          <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <p className="mb-3 font-semibold text-gray-900">
+                              QR Code - {company.name}
+                            </p>
+                            <img
+                              src={qrDataUrl}
+                              alt={`TrustNepal QR code for ${company.name}`}
+                              className="h-56 w-56 max-w-full rounded border border-gray-100"
+                            />
+                            <p className="mt-2 max-w-56 break-all text-xs text-gray-500">
+                              https://trustnepal.vercel.app/business/{company.slug}
+                            </p>
+                            <button
+                              onClick={downloadCompanyQr}
+                              className="mt-3 rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                            >
+                              Download QR Poster (PNG)
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
+
+                  {businesses.length > 0 && filteredCompanies.length === 0 && (
+                    <p className="py-8 text-center text-gray-500">
+                      No companies match your search or selected category.
+                    </p>
+                  )}
+
+                  {filteredCompanies.length > 0 && (
+                    <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-100 pt-4 sm:flex-row">
+                      <p className="text-sm text-gray-500">
+                        Showing {(companyPage - 1) * companiesPerPage + 1}
+                        {" - "}
+                        {Math.min(companyPage * companiesPerPage, filteredCompanies.length)}
+                        {" of "}
+                        {filteredCompanies.length} companies
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCompanyPage((page) => Math.max(1, page - 1))}
+                          disabled={companyPage === 1}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+
+                        <span className="text-sm font-medium text-gray-600">
+                          Page {companyPage} of {totalCompanyPages}
+                        </span>
+
+                        <button
+                          onClick={() => setCompanyPage((page) => Math.min(totalCompanyPages, page + 1))}
+                          disabled={companyPage >= totalCompanyPages}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
