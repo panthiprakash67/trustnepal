@@ -25,6 +25,7 @@ export default function AuthPage() {
   const [photoPreview, setPhotoPreview] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
   const [message, setMessage] = useState("");
@@ -36,14 +37,30 @@ export default function AuthPage() {
   ) {
     const metadata = user.user_metadata || {};
 
+    const googleFullName =
+      metadata.full_name || metadata.name || "";
+
+    const nameParts = String(googleFullName)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
     const savedFirstName =
-      firstName.trim() || metadata.first_name || "";
+      firstName.trim() ||
+      metadata.first_name ||
+      metadata.given_name ||
+      nameParts[0] ||
+      "";
 
     const savedMiddleName =
       middleName.trim() || metadata.middle_name || "";
 
     const savedLastName =
-      lastName.trim() || metadata.last_name || "";
+      lastName.trim() ||
+      metadata.last_name ||
+      metadata.family_name ||
+      nameParts.slice(1).join(" ") ||
+      "";
 
     const savedGender =
       gender || metadata.gender || null;
@@ -54,9 +71,10 @@ export default function AuthPage() {
       savedLastName,
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(" ") || String(googleFullName);
 
-    let avatarUrl: string | null = metadata.avatar_url || null;
+    let avatarUrl: string | null =
+      metadata.avatar_url || metadata.picture || null;
 
     if (selectedPhoto) {
       const extension =
@@ -151,6 +169,14 @@ export default function AuthPage() {
         }
       } catch (err) {
         console.error("Session check error:", err);
+
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to verify your account."
+          );
+        }
       } finally {
         if (active) {
           setCheckingSession(false);
@@ -193,6 +219,39 @@ export default function AuthPage() {
 
     setPhoto(selectedFile);
     setPhotoPreview(URL.createObjectURL(selectedFile));
+  }
+
+  async function handleGoogleLogin() {
+    setError("");
+    setMessage("");
+    setLoading(false);
+    setGoogleLoading(true);
+
+    try {
+      const { error: googleError } =
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth`,
+            queryParams: {
+              access_type: "offline",
+              prompt: "select_account",
+            },
+          },
+        });
+
+      if (googleError) {
+        throw googleError;
+      }
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Google login failed. Please try again.";
+
+      setError(errorMessage);
+      setGoogleLoading(false);
+    }
   }
 
   async function handleSubmit(
@@ -368,6 +427,55 @@ export default function AuthPage() {
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading || googleLoading}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white py-3 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {googleLoading ? (
+            "Connecting to Google..."
+          ) : (
+            <>
+              <svg
+                viewBox="0 0 48 48"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path
+                  fill="#EA4335"
+                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.01 13.22l7.98 6.19C11.91 13.72 17.47 9.5 24 9.5z"
+                  transform="translate(0 4)"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 38.08 46.98 31.95 46.98 24.55z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M10.01 28.59a14.4 14.4 0 0 1 0-9.18l-8-6.19a23.9 23.9 0 0 0 0 21.56l8-6.19z"
+                  transform="translate(0 4)"
+                />
+                <path
+                  fill="#34A853"
+                  d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.45-4.89 2.3-8.18 2.3-6.53 0-12.09-4.22-14.01-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                  transform="translate(0 -2)"
+                />
+              </svg>
+
+              Continue with Google
+            </>
+          )}
+        </button>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs font-medium uppercase text-gray-400">
+            Or continue with email
+          </span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
             <>
@@ -504,7 +612,7 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || googleLoading}
             className="w-full rounded-lg bg-blue-700 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
