@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
@@ -44,6 +44,13 @@ type Reply = {
 type ReplyTarget = {
   reviewId: number;
   parentReplyId: number | null;
+};
+
+type ReviewDraft = {
+  slug: string;
+  rating: number;
+  reviewTitle: string;
+  reviewText: string;
 };
 
 type ReplyListProps = {
@@ -223,6 +230,65 @@ function BusinessProfileContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
+
+  const reviewDraftKey = `trustnepal_review_draft:${slug}`;
+  const autoSubmitStarted = useRef(false);
+
+  useEffect(() => {
+    if (authLoading || !userId || !business) return;
+    if (autoSubmitStarted.current) return;
+
+    autoSubmitStarted.current = true;
+
+    try {
+      const savedDraft = localStorage.getItem(reviewDraftKey);
+      if (!savedDraft) return;
+
+      const draft = JSON.parse(savedDraft) as ReviewDraft;
+
+      if (
+        draft.slug !== slug ||
+        !draft.reviewTitle ||
+        !draft.reviewText ||
+        draft.rating < 1 ||
+        draft.rating > 5
+      ) {
+        return;
+      }
+
+      setRating(draft.rating);
+      setReviewTitle(draft.reviewTitle);
+      setReviewText(draft.reviewText);
+
+      setSubmitMessage(
+        "Your saved review has been restored. Please submit it below."
+      );
+    } catch {
+      setSubmitError("Unable to restore your saved review.");
+    }
+  }, [authLoading, userId, business, reviewDraftKey, slug]);
+
+  function saveReviewDraft(): boolean {
+    if (!reviewTitle.trim() || !reviewText.trim()) {
+      setSubmitError("Please fill in both the title and review.");
+      return false;
+    }
+
+    const draft: ReviewDraft = {
+      slug,
+      rating,
+      reviewTitle: reviewTitle.trim(),
+      reviewText: reviewText.trim(),
+    };
+
+    try {
+      localStorage.setItem(reviewDraftKey, JSON.stringify(draft));
+      return true;
+    } catch {
+      setSubmitError("Unable to save your review. Please try again.");
+      return false;
+    }
+  }
 
   const [activeReplyTarget, setActiveReplyTarget] =
     useState<ReplyTarget | null>(null);
@@ -425,11 +491,6 @@ function BusinessProfileContent() {
     setSubmitMessage("");
     setSubmitError("");
 
-    if (!userId) {
-      setSubmitError("Please login before submitting a review.");
-      return;
-    }
-
     if (!business) {
       setSubmitError("Business information is not available.");
       return;
@@ -437,6 +498,15 @@ function BusinessProfileContent() {
 
     if (!reviewTitle.trim() || !reviewText.trim()) {
       setSubmitError("Please fill in both the title and review.");
+      return;
+    }
+
+    if (!userId) {
+      if (!saveReviewDraft()) return;
+
+      window.location.href = `/auth?next=${encodeURIComponent(
+        `/business/${slug}`
+      )}`;
       return;
     }
 
@@ -454,6 +524,8 @@ function BusinessProfileContent() {
         });
 
       if (insertError) throw insertError;
+
+      localStorage.removeItem(reviewDraftKey);
 
       await loadReviews(business.id);
 
@@ -606,6 +678,24 @@ function BusinessProfileContent() {
           <h1 className="mt-5 text-3xl font-extrabold text-gray-900 md:text-4xl">
             {business.name}
           </h1>
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-600">
+                Average Rating
+              </span>
+              <span className="text-lg font-bold text-green-700">
+                {reviews.length > 0 ? averageRating.toFixed(1) : "—"} ★
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-600">
+                Total Reviews
+              </span>
+              <span className="text-lg font-bold text-gray-900">
+                {reviews.length}
+              </span>
+            </div>
+          </div>
 
           {business.location && (
             <p className="mt-3 text-gray-600">
@@ -613,88 +703,68 @@ function BusinessProfileContent() {
             </p>
           )}
 
-          {business.description && (
-            <p className="mt-5 max-w-3xl leading-7 text-gray-600">
-              {business.description}
-            </p>
-          )}
+          {(business.description ||
+            business.email ||
+            business.phone ||
+            business.website) && (
+            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+              {(business.email || business.phone || business.website) && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Contact Information
+                  </h2>
+                  <div className="mt-3 space-y-3">
+                    {business.phone && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Phone: </span>
+                        <a
+                          href={`tel:${business.phone.replace(/[^+\d]/g, "")}`}
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          {business.phone}
+                        </a>
+                      </p>
+                    )}
+                    {business.email && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Email: </span>
+                        <a
+                          href={`mailto:${business.email}`}
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          {business.email}
+                        </a>
+                      </p>
+                    )}
+                    {business.website && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Website: </span>
+                        <a
+                          href={business.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Visit Official Website
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
-          {(business.email || business.phone || business.website) && (
-            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
-              <h2 className="text-lg font-bold text-gray-900">
-                Contact Information
-              </h2>
-
-              <div className="mt-3 space-y-3">
-                {business.phone && (
-                  <p className="text-gray-700">
-                    <span className="font-semibold">Phone: </span>
-                    <a
-                      href={`tel:${business.phone.replace(/[^+\d]/g, "")}`}
-                      className="font-medium text-green-700 hover:underline"
-                    >
-                      {business.phone}
-                    </a>
+              {business.description && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Company Description
+                  </h2>
+                  <p className="mt-3 leading-7 text-gray-600">
+                    {business.description}
                   </p>
-                )}
-
-                {business.email && (
-                  <p className="text-gray-700">
-                    <span className="font-semibold">Email: </span>
-                    <a
-                      href={`mailto:${business.email}`}
-                      className="font-medium text-green-700 hover:underline"
-                    >
-                      {business.email}
-                    </a>
-                  </p>
-                )}
-
-                {business.website && (
-                  <p className="text-gray-700">
-                    <span className="font-semibold">Website: </span>
-                    <a
-                      href={business.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-green-700 hover:underline"
-                    >
-                      Visit Official Website ↗
-                    </a>
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl bg-green-50 p-5">
-              <p className="text-sm font-medium text-gray-600">
-                Average Rating
-              </p>
-              <p className="mt-2 text-3xl font-extrabold text-green-700">
-                {reviews.length > 0 ? averageRating.toFixed(1) : "—"}
-                <span className="ml-2 text-xl text-yellow-500">
-                  {reviews.length > 0 ? "★" : ""}
-                </span>
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Out of 5 stars
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-5">
-              <p className="text-sm font-medium text-gray-600">
-                Total Reviews
-              </p>
-              <p className="mt-2 text-3xl font-extrabold text-gray-900">
-                {reviews.length}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Approved community reviews
-              </p>
-            </div>
-          </div>
         </section>
 
         <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
@@ -710,19 +780,6 @@ function BusinessProfileContent() {
             <p className="mt-6 text-gray-500">
               Checking your login status...
             </p>
-          ) : !userId ? (
-            <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center">
-              <p className="text-gray-700">
-                Please login to write a review.
-              </p>
-
-              <Link
-                href="/auth"
-                className="mt-4 inline-block rounded-lg bg-green-700 px-6 py-3 font-semibold text-white hover:bg-green-800"
-              >
-                Login to Continue
-              </Link>
-            </div>
           ) : (
             <form
               onSubmit={handleReviewSubmit}
