@@ -256,15 +256,18 @@ function BusinessProfileContent() {
         return;
       }
 
-      setRating(draft.rating);
-      setReviewTitle(draft.reviewTitle);
-      setReviewText(draft.reviewText);
-
-      setSubmitMessage(
-        "Your saved review has been restored. Please submit it below."
-      );
+      queueMicrotask(() => {
+        setRating(draft.rating);
+        setReviewTitle(draft.reviewTitle);
+        setReviewText(draft.reviewText);
+        setSubmitMessage(
+          "Your saved review has been restored. Please submit it below."
+        );
+      });
     } catch {
-      setSubmitError("Unable to restore your saved review.");
+      queueMicrotask(() => {
+        setSubmitError("Unable to restore your saved review.");
+      });
     }
   }, [authLoading, userId, business, reviewDraftKey, slug]);
 
@@ -344,7 +347,7 @@ function BusinessProfileContent() {
     ];
 
     const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("user_id, full_name, avatar_url")
       .in("user_id", reviewUserIds);
 
@@ -403,7 +406,7 @@ function BusinessProfileContent() {
     ];
 
     const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("user_id, full_name, avatar_url")
       .in("user_id", replyUserIds);
 

@@ -9,6 +9,7 @@ import {
   getCountryCallingCode,
   parsePhoneNumberFromString,
 } from "libphonenumber-js";
+import type { CountryCode } from "libphonenumber-js";
 import { supabase } from "../../lib/supabase";
 
 type Gender = "Male" | "Female" | "Prefer not to say" | "";
@@ -100,7 +101,7 @@ const [showPassword, setShowPassword] = useState(false);
   );
 
   function getValidPhone(): PhoneDetails | null {
-    const parsed = parsePhoneNumberFromString(phoneNumber.trim(), phoneCountry as any);
+    const parsed = parsePhoneNumberFromString(phoneNumber.trim(), phoneCountry as CountryCode);
 
     if (!parsed || !parsed.isValid()) {
       return null;
@@ -301,12 +302,13 @@ const [showPassword, setShowPassword] = useState(false);
       return;
     }
 
-    if (!selectedFile.type.startsWith("image/")) {
-      setError("Please select a valid image file.");
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
+    ) {
+      setError("Please select a JPG, PNG, or WebP image.");
       event.target.value = "";
       return;
     }
-
     if (selectedFile.size > 5 * 1024 * 1024) {
       setError("Profile photo must be smaller than 5 MB.");
       event.target.value = "";
@@ -764,7 +766,7 @@ const [showPassword, setShowPassword] = useState(false);
                   )}
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handlePhotoChange}
                     className="min-w-0 flex-1 text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-medium file:text-blue-700 hover:file:bg-blue-100"
                   />

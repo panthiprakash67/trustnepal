@@ -83,14 +83,16 @@ export default function ProfilePage() {
       let finalAvatarUrl = avatarUrl;
 
       if (selectedFile) {
-        if (!selectedFile.type.startsWith("image/")) {
-          throw new Error("Please select an image file.");
+
+        if (
+          !["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
+        ) {
+          throw new Error("Please select a JPG, PNG, or WebP image.");
         }
 
         if (selectedFile.size > 5 * 1024 * 1024) {
           throw new Error("Image size must be less than 5 MB.");
         }
-
         const fileExtension =
           selectedFile.name.split(".").pop()?.toLowerCase() || "jpg";
 
@@ -207,7 +209,7 @@ export default function ProfilePage() {
               <input
                 id="profilePhoto"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
@@ -218,7 +220,7 @@ export default function ProfilePage() {
               />
 
               <p className="mt-2 text-xs text-gray-400">
-                JPG, PNG or other image formats. Maximum 5 MB.
+                JPG, PNG or WebP images. Maximum 5 MB.
               </p>
             </div>
 
