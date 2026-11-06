@@ -891,7 +891,7 @@ export default function AdminPage() {
                         </div>
 
                         {categoryCompanies.length > 0 ? (
-                          <div className="mt-4 border-t border-gray-100 pt-3">
+                          <div className="hidden">
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                               Listed Companies
                             </p>
@@ -1601,7 +1601,10 @@ export default function AdminPage() {
               </form>
             </div>
 
-            <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-3">
+            <div
+  id="listed-companies"
+  className="rounded-xl bg-white p-6 shadow-sm lg:col-span-3"
+>
               <h2 className="text-xl font-bold text-gray-900">
                 Assigned Team Members
               </h2>
