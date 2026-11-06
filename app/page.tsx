@@ -191,6 +191,8 @@ export default function Home() {
 
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [sortBy, setSortBy] = useState<"newest" | "highest" | "most">("newest");
+  const [visibleCount, setVisibleCount] = useState(15);
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessLoading, setBusinessLoading] = useState(true);
@@ -334,6 +336,32 @@ export default function Home() {
     });
   }, [businesses, search, activeCategory]);
 
+  useEffect(() => {
+    setVisibleCount(15);
+  }, [search, activeCategory, sortBy]);
+
+  const sortedBusinesses = useMemo(() => {
+    const result = [...filteredBusinesses];
+
+    if (sortBy === "highest") {
+      result.sort(
+        (a, b) =>
+          b.averageRating - a.averageRating ||
+          b.reviewCount - a.reviewCount
+      );
+    } else if (sortBy === "most") {
+      result.sort(
+        (a, b) =>
+          b.reviewCount - a.reviewCount ||
+          b.averageRating - a.averageRating
+      );
+    }
+
+    return result;
+  }, [filteredBusinesses, sortBy]);
+
+  const visibleBusinesses = sortedBusinesses.slice(0, visibleCount);
+
   const categoryLabel = (name: string) => {
     const index = categories.findIndex((item) => item.name === name);
     return index >= 0 ? t.categories[index] : name;
@@ -428,9 +456,8 @@ export default function Home() {
             🇳🇵 {t.madeForNepal}
           </div>
 
-          <h2 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-tight text-gray-900 md:text-6xl">
-            {t.heroFirst}
-            <br />
+          <h2 className="mx-auto max-w-full whitespace-nowrap text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-3xl md:text-5xl lg:text-6xl">
+            {t.heroFirst}{" "}
             <span className="text-green-700">{t.heroSecond}</span>
           </h2>
 
@@ -586,6 +613,20 @@ export default function Home() {
             ))}
           </div>
 
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-gray-600">
+              {ne ? "देखाउने क्रम:" : "Sort by:"}
+            </p>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "newest" | "highest" | "most")}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-green-600 sm:w-64"
+            >
+              <option value="newest">{ne ? "नयाँ पहिले" : "Newest"}</option>
+              <option value="highest">{ne ? "उच्च रेटिङ पहिले" : "Highest Rated"}</option>
+              <option value="most">{ne ? "धेरै समीक्षा पहिले" : "Most Reviewed"}</option>
+            </select>
+          </div>
           {businessLoading ? (
             <div className="rounded-2xl bg-white py-16 text-center text-gray-500">
               {t.loadingBusinesses}
@@ -603,9 +644,10 @@ export default function Home() {
                 {t.tryAgain}
               </button>
             </div>
-          ) : filteredBusinesses.length > 0 ? (
+          ) : sortedBusinesses.length > 0 ? (
+            <>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredBusinesses.map((item) => (
+              {visibleBusinesses.map((item) => (
                 <Link
                   key={item.id}
                   href={`/business/${encodeURIComponent(item.slug)}`}
@@ -659,6 +701,18 @@ export default function Home() {
                 </Link>
               ))}
             </div>
+
+            {visibleBusinesses.length < sortedBusinesses.length && (
+              <div className="mt-10 text-center">
+                <button
+                  onClick={() => setVisibleCount((current) => current + 15)}
+                  className="rounded-full bg-green-700 px-8 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-800"
+                >
+                  {ne ? "थप कम्पनीहरू देखाउनुहोस्" : "Load More"}
+                </button>
+              </div>
+            )}
+            </>
           ) : (
             <div className="rounded-2xl border border-gray-100 bg-white py-16 text-center">
               <div className="text-5xl">🔎</div>
@@ -758,3 +812,4 @@ export default function Home() {
     </main>
   );
 }
+
