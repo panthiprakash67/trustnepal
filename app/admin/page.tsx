@@ -10,6 +10,8 @@ import { supabase } from "../../lib/supabase";
 type Category = {
   id: number;
   name: string;
+  slug: string;
+  description: string | null;
 };
 
 type Business = {
@@ -61,6 +63,9 @@ export default function AdminPage() {
   const [userRole, setUserRole] = useState("");
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDescription, setCategoryDescription] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [qrCompany, setQrCompany] = useState<Business | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -164,12 +169,87 @@ export default function AdminPage() {
   async function loadCategories() {
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name")
+      .select("id, name, slug, description")
       .order("name");
 
     if (error) throw error;
 
     setCategories((data ?? []) as Category[]);
+  }
+
+  function resetCategoryForm() {
+    setCategoryName("");
+    setCategoryDescription("");
+    setEditingCategoryId(null);
+  }
+
+  function editCategory(category: Category) {
+    setCategoryName(category.name);
+    setCategoryDescription(category.description ?? "");
+    setEditingCategoryId(category.id);
+    setMessage("");
+    setError("");
+  }
+
+  async function saveCategory() {
+    const name = categoryName.trim();
+
+    if (!name) {
+      setError("Please enter a category name.");
+      return;
+    }
+
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!slug) {
+      setError("Please use English letters or numbers in the category name.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const categoryData = {
+        name,
+        slug,
+        description: categoryDescription.trim() || null,
+      };
+
+      if (editingCategoryId !== null) {
+        const { error } = await supabase
+          .from("categories")
+          .update(categoryData)
+          .eq("id", editingCategoryId);
+
+        if (error) throw error;
+
+        setMessage("Category updated successfully.");
+      } else {
+        const { error } = await supabase
+          .from("categories")
+          .insert(categoryData);
+
+        if (error) throw error;
+
+        setMessage("Category added successfully.");
+      }
+
+      await loadCategories();
+      resetCategoryForm();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save category."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function loadBusinesses() {
@@ -888,16 +968,29 @@ export default function AdminPage() {
           )}
 
           {userRole === "super_admin" && (
-            <button
-              onClick={() => setActiveTab("users")}
-              className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                activeTab === "users"
-                  ? "bg-green-700 text-white"
-                  : "bg-white text-gray-700"
-              }`}
-            >
-              Admin Management
-            </button>
+            <>
+              <button
+                onClick={() => setActiveTab("users")}
+                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
+                  activeTab === "users"
+                    ? "bg-green-700 text-white"
+                    : "bg-white text-gray-700"
+                }`}
+              >
+                Admin Management
+              </button>
+
+              <button
+                onClick={() => setActiveTab("categories")}
+                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
+                  activeTab === "categories"
+                    ? "bg-green-700 text-white"
+                    : "bg-white text-gray-700"
+                }`}
+              >
+                Category Management
+              </button>
+            </>
           )}
         </div>
 
@@ -1550,6 +1643,139 @@ export default function AdminPage() {
               <p className="mt-5 text-xs text-gray-400">
                 Super Admin accounts cannot be removed from this screen.
               </p>
+            </div>
+          </section>
+        )}
+
+        {/* Category Management */}
+        {activeTab === "categories" && userRole === "super_admin" && (
+          <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-2">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingCategoryId !== null ? "Edit Category" : "Add New Category"}
+              </h2>
+
+              <form
+                className="mt-5 space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  saveCategory();
+                }}
+              >
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Category Name
+                  </label>
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={(event) => setCategoryName(event.target.value)}
+                    placeholder="Enter category name"
+                    required
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-black outline-none focus:border-green-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={categoryDescription}
+                    onChange={(event) =>
+                      setCategoryDescription(event.target.value)
+                    }
+                    placeholder="Enter category description"
+                    rows={4}
+                    style={{ color: "#000000", backgroundColor: "#ffffff" }}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 !text-black placeholder:text-gray-400 outline-none focus:border-green-600"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                  >
+                    {saving
+                      ? "Saving..."
+                      : editingCategoryId !== null
+                        ? "Update Category"
+                        : "Save Category"}
+                  </button>
+
+                  {editingCategoryId !== null && (
+                    <button
+                      type="button"
+                      onClick={resetCategoryForm}
+                      className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {message && (
+                <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+                  {message}
+                </p>
+              )}
+
+              {error && (
+                <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-gray-900">
+                  All Categories
+                </h2>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-600">
+                  {categories.length} Categories
+                </span>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {categories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="flex flex-col justify-between gap-3 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900">
+                        {category.name}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Slug: {category.slug}
+                      </p>
+                      {category.description && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          {category.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => editCategory(category)}
+                      className="rounded-lg border border-green-300 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ))}
+
+                {categories.length === 0 && (
+                  <p className="py-6 text-center text-gray-500">
+                    No categories found.
+                  </p>
+                )}
+              </div>
             </div>
           </section>
         )}
