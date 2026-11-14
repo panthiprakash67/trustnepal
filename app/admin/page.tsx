@@ -22,6 +22,8 @@ type Business = {
   description: string | null;
   location: string | null;
   website: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   email: string | null;
   phone: string | null;
 };
@@ -91,6 +93,8 @@ export default function AdminPage() {
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [website, setWebsite] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
   const [companyPhone, setCompanyPhone] = useState("");
 
@@ -255,7 +259,7 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website, email, phone")
+      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, email, phone")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -426,6 +430,8 @@ export default function AdminPage() {
     setDescription("");
     setLocation("");
     setWebsite("");
+    setFacebookUrl("");
+    setInstagramUrl("");
     setCompanyEmail("");
     setCompanyPhone("");
     setEditingId(null);
@@ -438,6 +444,8 @@ export default function AdminPage() {
     setDescription(company.description ?? "");
     setLocation(company.location ?? "");
     setWebsite(company.website ?? "");
+    setFacebookUrl(company.facebook_url ?? "");
+    setInstagramUrl(company.instagram_url ?? "");
     setCompanyEmail(company.email ?? "");
     setCompanyPhone(company.phone ?? "");
 
@@ -625,6 +633,36 @@ export default function AdminPage() {
         throw new Error("Company name and category are required.");
       }
 
+      const validateSocialUrl = (
+        value: string,
+        platform: "Facebook" | "Instagram"
+      ) => {
+        if (!value.trim()) return null;
+
+        let parsedUrl: URL;
+
+        try {
+          parsedUrl = new URL(value.trim());
+        } catch {
+          throw new Error(`${platform} URL is not valid.`);
+        }
+
+        const hostname = parsedUrl.hostname.toLowerCase();
+        const allowedDomains =
+          platform === "Facebook" ? ["facebook.com", "fb.com"] : ["instagram.com"];
+
+        if (
+          !["http:", "https:"].includes(parsedUrl.protocol) ||
+          !allowedDomains.some(
+            (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+          )
+        ) {
+          throw new Error(`Please enter a valid ${platform} page URL.`);
+        }
+
+        return parsedUrl.toString();
+      };
+
       const companyData = {
         name: companyName.trim(),
         slug: createSlug(companyName),
@@ -632,6 +670,8 @@ export default function AdminPage() {
         description: description.trim() || null,
         location: location.trim() || null,
         website: website.trim() || null,
+        facebook_url: validateSocialUrl(facebookUrl, "Facebook"),
+        instagram_url: validateSocialUrl(instagramUrl, "Instagram"),
         email: companyEmail.trim() || null,
         phone: companyPhone.trim() || null,
       };
@@ -1366,6 +1406,32 @@ export default function AdminPage() {
                       value={website}
                       onChange={(e) => setWebsite(e.target.value)}
                       placeholder="https://example.com"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Facebook Page URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={facebookUrl}
+                      onChange={(e) => setFacebookUrl(e.target.value)}
+                      placeholder="https://www.facebook.com/yourpage"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      Instagram Page URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={instagramUrl}
+                      onChange={(e) => setInstagramUrl(e.target.value)}
+                      placeholder="https://www.instagram.com/yourpage"
                       className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
                     />
                   </div>

@@ -14,11 +14,40 @@ type Business = {
   description: string | null;
   location: string | null;
   website: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   email: string | null;
   phone: string | null;
   categoryName: string;
 };
 
+function getSafeSocialUrl(
+  value: string | null,
+  platform: "facebook" | "instagram"
+): string | null {
+  if (!value) return null;
+
+  try {
+    const parsedUrl = new URL(value);
+    const hostname = parsedUrl.hostname.toLowerCase();
+
+    const allowedDomains =
+      platform === "facebook" ? ["facebook.com", "fb.com"] : ["instagram.com"];
+
+    if (
+      !["http:", "https:"].includes(parsedUrl.protocol) ||
+      !allowedDomains.some(
+        (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+      )
+    ) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
 type Review = {
   id: number;
   user_id: string;
@@ -445,7 +474,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website, email, phone"
+              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, email, phone"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -709,9 +738,12 @@ function BusinessProfileContent() {
           {(business.description ||
             business.email ||
             business.phone ||
-            business.website) && (
+            business.website ||
+            business.facebook_url ||
+            business.instagram_url) && (
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-              {(business.email || business.phone || business.website) && (
+              {(business.email || business.phone || business.website ||
+                business.facebook_url || business.instagram_url) && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <h2 className="text-lg font-bold text-gray-900">
                     Contact Information
@@ -749,6 +781,34 @@ function BusinessProfileContent() {
                           className="font-medium text-green-700 hover:underline"
                         >
                           Visit Official Website
+                        </a>
+                      </p>
+                    )}
+
+                    {getSafeSocialUrl(business.facebook_url, "facebook") && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Facebook: </span>
+                        <a
+                          href={getSafeSocialUrl(business.facebook_url, "facebook")!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Visit Facebook Page
+                        </a>
+                      </p>
+                    )}
+
+                    {getSafeSocialUrl(business.instagram_url, "instagram") && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Instagram: </span>
+                        <a
+                          href={getSafeSocialUrl(business.instagram_url, "instagram")!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Visit Instagram Page
                         </a>
                       </p>
                     )}
