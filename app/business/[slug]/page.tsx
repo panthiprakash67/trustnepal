@@ -16,6 +16,8 @@ type Business = {
   website: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   email: string | null;
   phone: string | null;
   categoryName: string;
@@ -23,7 +25,7 @@ type Business = {
 
 function getSafeSocialUrl(
   value: string | null,
-  platform: "facebook" | "instagram"
+  platform: "facebook" | "instagram" | "tiktok" | "youtube"
 ): string | null {
   if (!value) return null;
 
@@ -32,7 +34,13 @@ function getSafeSocialUrl(
     const hostname = parsedUrl.hostname.toLowerCase();
 
     const allowedDomains =
-      platform === "facebook" ? ["facebook.com", "fb.com"] : ["instagram.com"];
+      platform === "facebook"
+        ? ["facebook.com", "fb.com"]
+        : platform === "instagram"
+          ? ["instagram.com"]
+          : platform === "tiktok"
+            ? ["tiktok.com"]
+            : ["youtube.com", "youtu.be"];
 
     if (
       !["http:", "https:"].includes(parsedUrl.protocol) ||
@@ -474,7 +482,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, email, phone"
+              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -740,10 +748,10 @@ function BusinessProfileContent() {
             business.phone ||
             business.website ||
             business.facebook_url ||
-            business.instagram_url) && (
+            business.instagram_url || business.tiktok_url || business.youtube_url) && (
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
               {(business.email || business.phone || business.website ||
-                business.facebook_url || business.instagram_url) && (
+                business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url) && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <h2 className="text-lg font-bold text-gray-900">
                     Contact Information
@@ -809,6 +817,34 @@ function BusinessProfileContent() {
                           className="font-medium text-green-700 hover:underline"
                         >
                           Visit Instagram Page
+                        </a>
+                      </p>
+                    )}
+
+                    {getSafeSocialUrl(business.tiktok_url, "tiktok") && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">TikTok: </span>
+                        <a
+                          href={getSafeSocialUrl(business.tiktok_url, "tiktok")!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Visit TikTok Profile
+                        </a>
+                      </p>
+                    )}
+
+                    {getSafeSocialUrl(business.youtube_url, "youtube") && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">YouTube: </span>
+                        <a
+                          href={getSafeSocialUrl(business.youtube_url, "youtube")!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Visit YouTube Channel
                         </a>
                       </p>
                     )}

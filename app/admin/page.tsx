@@ -24,6 +24,8 @@ type Business = {
   website: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   email: string | null;
   phone: string | null;
 };
@@ -95,6 +97,8 @@ export default function AdminPage() {
   const [website, setWebsite] = useState("");
   const [facebookUrl, setFacebookUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
   const [companyPhone, setCompanyPhone] = useState("");
 
@@ -259,7 +263,7 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, email, phone")
+      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -432,6 +436,8 @@ export default function AdminPage() {
     setWebsite("");
     setFacebookUrl("");
     setInstagramUrl("");
+    setTiktokUrl("");
+    setYoutubeUrl("");
     setCompanyEmail("");
     setCompanyPhone("");
     setEditingId(null);
@@ -446,6 +452,8 @@ export default function AdminPage() {
     setWebsite(company.website ?? "");
     setFacebookUrl(company.facebook_url ?? "");
     setInstagramUrl(company.instagram_url ?? "");
+    setTiktokUrl(company.tiktok_url ?? "");
+    setYoutubeUrl(company.youtube_url ?? "");
     setCompanyEmail(company.email ?? "");
     setCompanyPhone(company.phone ?? "");
 
@@ -635,7 +643,7 @@ export default function AdminPage() {
 
       const validateSocialUrl = (
         value: string,
-        platform: "Facebook" | "Instagram"
+        platform: "Facebook" | "Instagram" | "TikTok" | "YouTube"
       ) => {
         if (!value.trim()) return null;
 
@@ -649,7 +657,13 @@ export default function AdminPage() {
 
         const hostname = parsedUrl.hostname.toLowerCase();
         const allowedDomains =
-          platform === "Facebook" ? ["facebook.com", "fb.com"] : ["instagram.com"];
+          platform === "Facebook"
+            ? ["facebook.com", "fb.com"]
+            : platform === "Instagram"
+              ? ["instagram.com"]
+              : platform === "TikTok"
+                ? ["tiktok.com"]
+                : ["youtube.com", "youtu.be"];
 
         if (
           !["http:", "https:"].includes(parsedUrl.protocol) ||
@@ -672,6 +686,8 @@ export default function AdminPage() {
         website: website.trim() || null,
         facebook_url: validateSocialUrl(facebookUrl, "Facebook"),
         instagram_url: validateSocialUrl(instagramUrl, "Instagram"),
+        tiktok_url: validateSocialUrl(tiktokUrl, "TikTok"),
+        youtube_url: validateSocialUrl(youtubeUrl, "YouTube"),
         email: companyEmail.trim() || null,
         phone: companyPhone.trim() || null,
       };
@@ -1432,6 +1448,32 @@ export default function AdminPage() {
                       value={instagramUrl}
                       onChange={(e) => setInstagramUrl(e.target.value)}
                       placeholder="https://www.instagram.com/yourpage"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      TikTok Profile URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={tiktokUrl}
+                      onChange={(e) => setTiktokUrl(e.target.value)}
+                      placeholder="https://www.tiktok.com/@yourprofile"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      YouTube Channel URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/@yourchannel"
                       className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
                     />
                   </div>
