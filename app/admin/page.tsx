@@ -28,6 +28,18 @@ type Business = {
   youtube_url: string | null;
   email: string | null;
   phone: string | null;
+  author: string | null;
+  publisher: string | null;
+  genre: string | null;
+  language: string | null;
+  publication_year: number | null;
+  isbn: string | null;
+  director: string | null;
+  cast_members: string | null;
+  release_year: number | null;
+  duration: string | null;
+  production_company: string | null;
+  image_url: string | null;
 };
 
 type UserRole = {
@@ -101,6 +113,30 @@ export default function AdminPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
   const [companyPhone, setCompanyPhone] = useState("");
+
+  const [author, setAuthor] = useState("");
+  const [publisher, setPublisher] = useState("");
+  const [genre, setGenre] = useState("");
+  const [language, setLanguage] = useState("");
+  const [publicationYear, setPublicationYear] = useState("");
+  const [isbn, setIsbn] = useState("");
+
+  const [director, setDirector] = useState("");
+  const [castMembers, setCastMembers] = useState("");
+  const [releaseYear, setReleaseYear] = useState("");
+  const [duration, setDuration] = useState("");
+  const [productionCompany, setProductionCompany] = useState("");
+
+  const [catalogImageFile, setCatalogImageFile] = useState<File | null>(null);
+  const [catalogImagePreview, setCatalogImagePreview] = useState("");
+
+  const selectedCategory = categories.find(
+    (category) => String(category.id) === categoryId
+  );
+
+  const isBookCategory = selectedCategory?.slug === "books";
+  const isMovieCategory = selectedCategory?.slug === "movies";
+  const isCatalogCategory = isBookCategory || isMovieCategory;
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -263,7 +299,7 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone")
+      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -428,6 +464,32 @@ export default function AdminPage() {
       .replace(/^-|-$/g, "");
   }
 
+  function handleCatalogImageChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please select a JPG, PNG, or WEBP image.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image size must be 2 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+
+    setError("");
+    setCatalogImageFile(file);
+    setCatalogImagePreview(URL.createObjectURL(file));
+  }
+
   function resetCompanyForm() {
     setCompanyName("");
     setCategoryId("");
@@ -440,6 +502,21 @@ export default function AdminPage() {
     setYoutubeUrl("");
     setCompanyEmail("");
     setCompanyPhone("");
+
+    setAuthor("");
+    setPublisher("");
+    setGenre("");
+    setLanguage("");
+    setPublicationYear("");
+    setIsbn("");
+    setDirector("");
+    setCastMembers("");
+    setReleaseYear("");
+    setDuration("");
+    setProductionCompany("");
+    setCatalogImageFile(null);
+    setCatalogImagePreview("");
+
     setEditingId(null);
   }
 
@@ -456,6 +533,20 @@ export default function AdminPage() {
     setYoutubeUrl(company.youtube_url ?? "");
     setCompanyEmail(company.email ?? "");
     setCompanyPhone(company.phone ?? "");
+
+    setAuthor(company.author ?? "");
+    setPublisher(company.publisher ?? "");
+    setGenre(company.genre ?? "");
+    setLanguage(company.language ?? "");
+    setPublicationYear(company.publication_year?.toString() ?? "");
+    setIsbn(company.isbn ?? "");
+    setDirector(company.director ?? "");
+    setCastMembers(company.cast_members ?? "");
+    setReleaseYear(company.release_year?.toString() ?? "");
+    setDuration(company.duration ?? "");
+    setProductionCompany(company.production_company ?? "");
+    setCatalogImageFile(null);
+    setCatalogImagePreview(company.image_url ?? "");
 
     setActiveTab("companies");
 
@@ -638,7 +729,39 @@ export default function AdminPage() {
 
     try {
       if (!companyName.trim() || !categoryId) {
-        throw new Error("Company name and category are required.");
+        throw new Error("Name and category are required.");
+      }
+
+      if (isBookCategory && !author.trim()) {
+        throw new Error("Book author is required.");
+      }
+
+      let imageUrl = catalogImagePreview.startsWith("http")
+        ? catalogImagePreview
+        : null;
+
+      if (catalogImageFile && isCatalogCategory) {
+        const extension =
+          catalogImageFile.type === "image/jpeg" ? "jpg" :
+          catalogImageFile.type === "image/png" ? "png" : "webp";
+
+        const imagePath =
+          `${selectedCategory!.slug}/${createSlug(companyName)}-${Date.now()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("catalog-images")
+          .upload(imagePath, catalogImageFile, {
+            upsert: false,
+            contentType: catalogImageFile.type,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("catalog-images")
+          .getPublicUrl(imagePath);
+
+        imageUrl = publicUrlData.publicUrl;
       }
 
       const validateSocialUrl = (
@@ -682,14 +805,33 @@ export default function AdminPage() {
         slug: createSlug(companyName),
         category_id: Number(categoryId),
         description: description.trim() || null,
-        location: location.trim() || null,
-        website: website.trim() || null,
-        facebook_url: validateSocialUrl(facebookUrl, "Facebook"),
-        instagram_url: validateSocialUrl(instagramUrl, "Instagram"),
-        tiktok_url: validateSocialUrl(tiktokUrl, "TikTok"),
-        youtube_url: validateSocialUrl(youtubeUrl, "YouTube"),
-        email: companyEmail.trim() || null,
-        phone: companyPhone.trim() || null,
+
+        location: isCatalogCategory ? null : location.trim() || null,
+        website: isCatalogCategory ? null : website.trim() || null,
+        facebook_url: isCatalogCategory ? null : validateSocialUrl(facebookUrl, "Facebook"),
+        instagram_url: isCatalogCategory ? null : validateSocialUrl(instagramUrl, "Instagram"),
+        tiktok_url: isCatalogCategory ? null : validateSocialUrl(tiktokUrl, "TikTok"),
+        youtube_url: isCatalogCategory ? null : validateSocialUrl(youtubeUrl, "YouTube"),
+        email: isCatalogCategory ? null : companyEmail.trim() || null,
+        phone: isCatalogCategory ? null : companyPhone.trim() || null,
+
+        author: isBookCategory ? author.trim() || null : null,
+        publisher: isBookCategory ? publisher.trim() || null : null,
+        genre: isCatalogCategory ? genre.trim() || null : null,
+        language: isCatalogCategory ? language.trim() || null : null,
+        publication_year: isBookCategory && publicationYear
+          ? Number(publicationYear) : null,
+        isbn: isBookCategory ? isbn.trim() || null : null,
+
+        director: isMovieCategory ? director.trim() || null : null,
+        cast_members: isMovieCategory ? castMembers.trim() || null : null,
+        release_year: isMovieCategory && releaseYear
+          ? Number(releaseYear) : null,
+        duration: isMovieCategory ? duration.trim() || null : null,
+        production_company: isMovieCategory
+          ? productionCompany.trim() || null : null,
+
+        image_url: isCatalogCategory ? imageUrl : null,
       };
 
       if (editingId !== null) {
@@ -700,7 +842,11 @@ export default function AdminPage() {
 
         if (error) throw error;
 
-        setMessage("Company updated successfully!");
+        setMessage(
+          isBookCategory ? "Book updated successfully!" :
+          isMovieCategory ? "Movie updated successfully!" :
+          "Company updated successfully!"
+        );
       } else {
         const { error } = await supabase
           .from("businesses")
@@ -708,14 +854,18 @@ export default function AdminPage() {
 
         if (error) throw error;
 
-        setMessage("New company added successfully!");
+        setMessage(
+          isBookCategory ? "New book added successfully!" :
+          isMovieCategory ? "New movie added successfully!" :
+          "New company added successfully!"
+        );
       }
 
       resetCompanyForm();
       await loadBusinesses();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Unable to save company."
+        err instanceof Error ? err.message : "Unable to save item."
       );
     } finally {
       setSaving(false);
@@ -1325,160 +1475,341 @@ export default function AdminPage() {
           ["super_admin", "admin"].includes(userRole) && (
             <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
               <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {editingId !== null ? "Edit Company" : "Add New Company"}
-                </h2>
+                
+<h2 className="text-xl font-bold text-gray-900">
+  {isBookCategory
+    ? editingId !== null ? "Edit Book" : "Add New Book"
+    : isMovieCategory
+      ? editingId !== null ? "Edit Movie" : "Add New Movie"
+      : editingId !== null ? "Edit Company" : "Add New Company"}
+</h2>
 
-                <form onSubmit={saveCompany} className="mt-5 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Company Name *
-                    </label>
-                    <input
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      required
-                      placeholder="e.g. Bajeko Sekuwa"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+<form onSubmit={saveCompany} className="mt-5 space-y-4">
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Category *
+    </label>
+    <select
+      value={categoryId}
+      onChange={(e) => setCategoryId(e.target.value)}
+      required
+      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+    >
+      <option value="">Select Category</option>
+      {categories.map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      ))}
+    </select>
+  </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Category *
-                    </label>
-                    <select
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                      required
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      {isBookCategory ? "Book Title *" : isMovieCategory ? "Movie Title *" : "Company Name *"}
+    </label>
+    <input
+      value={companyName}
+      onChange={(e) => setCompanyName(e.target.value)}
+      required
+      placeholder={isBookCategory ? "Enter book title" : isMovieCategory ? "Enter movie title" : "Enter company name"}
+      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+    />
+  </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Description
-                    </label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      placeholder="Describe this company..."
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+  <div>
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Description
+    </label>
+    <textarea
+      value={description}
+      onChange={(e) => setDescription(e.target.value)}
+      rows={3}
+      placeholder="Enter description..."
+      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+    />
+  </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Location
-                    </label>
-                    <input
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="e.g. Kathmandu, Nepal"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+  {isBookCategory && (
+    <>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Author *
+        </label>
+        <input
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          required
+          placeholder="Enter author name"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Official Company Email
-                    </label>
-                    <input
-                      type="email"
-                      value={companyEmail}
-                      onChange={(e) => setCompanyEmail(e.target.value)}
-                      placeholder="e.g. info@example.com"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Publisher
+        </label>
+        <input
+          value={publisher}
+          onChange={(e) => setPublisher(e.target.value)}
+          placeholder="Enter publisher"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Official Contact Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={companyPhone}
-                      onChange={(e) => setCompanyPhone(e.target.value)}
-                      placeholder="e.g. +977-1-1234567"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          ISBN
+        </label>
+        <input
+          value={isbn}
+          onChange={(e) => setIsbn(e.target.value)}
+          placeholder="Enter ISBN"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Website
-                    </label>
-                    <input
-                      type="url"
-                      value={website}
-                      onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="https://example.com"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Publication Year
+        </label>
+        <input
+          type="number"
+          value={publicationYear}
+          onChange={(e) => setPublicationYear(e.target.value)}
+          placeholder="e.g. 2025"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+    </>
+  )}
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Facebook Page URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={facebookUrl}
-                      onChange={(e) => setFacebookUrl(e.target.value)}
-                      placeholder="https://www.facebook.com/yourpage"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+  {isMovieCategory && (
+    <>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Director
+        </label>
+        <input
+          value={director}
+          onChange={(e) => setDirector(e.target.value)}
+          placeholder="Enter director name"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      Instagram Page URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={instagramUrl}
-                      onChange={(e) => setInstagramUrl(e.target.value)}
-                      placeholder="https://www.instagram.com/yourpage"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Cast
+        </label>
+        <textarea
+          value={castMembers}
+          onChange={(e) => setCastMembers(e.target.value)}
+          rows={2}
+          placeholder="Enter cast members"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      TikTok Profile URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={tiktokUrl}
-                      onChange={(e) => setTiktokUrl(e.target.value)}
-                      placeholder="https://www.tiktok.com/@yourprofile"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Release Year
+        </label>
+        <input
+          type="number"
+          value={releaseYear}
+          onChange={(e) => setReleaseYear(e.target.value)}
+          placeholder="e.g. 2026"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">
-                      YouTube Channel URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      placeholder="https://www.youtube.com/@yourchannel"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
-                    />
-                  </div>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Duration
+        </label>
+        <input
+          value={duration}
+          onChange={(e) => setDuration(e.target.value)}
+          placeholder="e.g. 2h 15m"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
 
-                  <button
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Production Company
+        </label>
+        <input
+          value={productionCompany}
+          onChange={(e) => setProductionCompany(e.target.value)}
+          placeholder="Enter production company"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+    </>
+  )}
+
+  {isCatalogCategory && (
+    <>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Genre
+        </label>
+        <input
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          placeholder="e.g. Fiction, Drama, Action"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Language
+        </label>
+        <input
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          placeholder="e.g. Nepali, English"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          {isBookCategory ? "Book Cover Image" : "Movie Poster"}
+        </label>
+        <input
+          key={catalogImagePreview || "catalog-image"}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleCatalogImageChange}
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          JPG, PNG or WEBP. Maximum file size: 2 MB.
+        </p>
+        {catalogImagePreview && (
+          <img
+            src={catalogImagePreview}
+            alt="Catalog image preview"
+            className="mt-3 h-40 rounded-lg border object-contain"
+          />
+        )}
+      </div>
+    </>
+  )}
+
+  {!isCatalogCategory && (
+    <>
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Location
+        </label>
+        <input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="e.g. Kathmandu, Nepal"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Official Company Email
+        </label>
+        <input
+          type="email"
+          value={companyEmail}
+          onChange={(e) => setCompanyEmail(e.target.value)}
+          placeholder="info@example.com"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Official Contact Number
+        </label>
+        <input
+          type="tel"
+          value={companyPhone}
+          onChange={(e) => setCompanyPhone(e.target.value)}
+          placeholder="+977-1-1234567"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Website
+        </label>
+        <input
+          type="url"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          placeholder="https://example.com"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Facebook Page URL (Optional)
+        </label>
+        <input
+          type="url"
+          value={facebookUrl}
+          onChange={(e) => setFacebookUrl(e.target.value)}
+          placeholder="https://www.facebook.com/yourpage"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Instagram Page URL (Optional)
+        </label>
+        <input
+          type="url"
+          value={instagramUrl}
+          onChange={(e) => setInstagramUrl(e.target.value)}
+          placeholder="https://www.instagram.com/yourpage"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          TikTok Profile URL (Optional)
+        </label>
+        <input
+          type="url"
+          value={tiktokUrl}
+          onChange={(e) => setTiktokUrl(e.target.value)}
+          placeholder="https://www.tiktok.com/@yourprofile"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          YouTube Channel URL (Optional)
+        </label>
+        <input
+          type="url"
+          value={youtubeUrl}
+          onChange={(e) => setYoutubeUrl(e.target.value)}
+          placeholder="https://www.youtube.com/@yourchannel"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+      </div>
+    </>
+  )}
+
+  <button
+
                     type="submit"
                     disabled={saving}
                     className="w-full rounded-lg bg-green-700 px-5 py-3 font-bold text-white hover:bg-green-800 disabled:opacity-50"

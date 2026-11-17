@@ -309,8 +309,8 @@ const [showPassword, setShowPassword] = useState(false);
       event.target.value = "";
       return;
     }
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      setError("Profile photo must be smaller than 5 MB.");
+    if (selectedFile.size > 2 * 1024 * 1024) {
+      setError("Profile photo must be smaller than 2 MB.");
       event.target.value = "";
       return;
     }

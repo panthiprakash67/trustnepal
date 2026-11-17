@@ -90,8 +90,8 @@ export default function ProfilePage() {
           throw new Error("Please select a JPG, PNG, or WebP image.");
         }
 
-        if (selectedFile.size > 5 * 1024 * 1024) {
-          throw new Error("Image size must be less than 5 MB.");
+        if (selectedFile.size > 2 * 1024 * 1024) {
+          throw new Error("Image size must be less than 2 MB.");
         }
         const fileExtension =
           selectedFile.name.split(".").pop()?.toLowerCase() || "jpg";

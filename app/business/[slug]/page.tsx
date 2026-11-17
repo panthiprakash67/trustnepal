@@ -20,7 +20,18 @@ type Business = {
   youtube_url: string | null;
   email: string | null;
   phone: string | null;
-  categoryName: string;
+  author: string | null;
+  publisher: string | null;
+  genre: string | null;
+  language: string | null;
+  publication_year: number | null;
+  isbn: string | null;
+  director: string | null;
+  cast_members: string | null;
+  release_year: number | null;
+  duration: string | null;
+  production_company: string | null;
+  image_url: string | null;  categoryName: string;
 };
 
 function getSafeSocialUrl(
@@ -482,7 +493,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone"
+              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -737,13 +748,67 @@ function BusinessProfileContent() {
             </div>
           </div>
 
-          {business.location && (
+          {(business.categoryName === "Books" || business.categoryName === "Movies") && (
+            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]">
+                {business.image_url && (
+                  <div className="flex justify-center">
+                    <img
+                      src={business.image_url}
+                      alt={business.categoryName === "Books" ? `${business.name} book cover` : `${business.name} movie poster`}
+                      className="max-h-[340px] w-full max-w-[220px] rounded-lg object-contain shadow-sm"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {business.categoryName === "Books" ? "Book Details" : "Movie Details"}
+                  </h2>
+
+                  <div className="mt-4 space-y-3 text-gray-700">
+                    {business.categoryName === "Books" ? (
+                      <>
+                        {business.author && <p><span className="font-semibold">Author: </span>{business.author}</p>}
+                        {business.publisher && <p><span className="font-semibold">Publisher: </span>{business.publisher}</p>}
+                        {business.isbn && <p><span className="font-semibold">ISBN: </span>{business.isbn}</p>}
+                        {business.publication_year && <p><span className="font-semibold">Publication Year: </span>{business.publication_year}</p>}
+                      </>
+                    ) : (
+                      <>
+                        {business.director && <p><span className="font-semibold">Director: </span>{business.director}</p>}
+                        {business.cast_members && <p><span className="font-semibold">Cast: </span>{business.cast_members}</p>}
+                        {business.release_year && <p><span className="font-semibold">Release Year: </span>{business.release_year}</p>}
+                        {business.duration && <p><span className="font-semibold">Duration: </span>{business.duration}</p>}
+                        {business.production_company && <p><span className="font-semibold">Production Company: </span>{business.production_company}</p>}
+                      </>
+                    )}
+
+                    {business.genre && <p><span className="font-semibold">Genre: </span>{business.genre}</p>}
+                    {business.language && <p><span className="font-semibold">Language: </span>{business.language}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {business.description && (
+                <div className="mt-6 border-t border-gray-200 pt-5">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {business.categoryName === "Books" ? "About This Book" : "About This Movie"}
+                  </h3>
+                  <p className="mt-3 whitespace-pre-wrap leading-7 text-gray-600">
+                    {business.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          {business.categoryName !== "Books" && business.categoryName !== "Movies" && business.location && (
             <p className="mt-3 text-gray-600">
               📍 {business.location}
             </p>
           )}
 
-          {(business.description ||
+          {business.categoryName !== "Books" && business.categoryName !== "Movies" && (business.description ||
             business.email ||
             business.phone ||
             business.website ||

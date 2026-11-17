@@ -26,6 +26,10 @@ type Business = {
   description: string | null;
   location: string | null;
   website: string | null;
+  author: string | null;
+  director: string | null;
+  release_year: number | null;
+  image_url: string | null;
   categoryName: string;
   averageRating: number;
   reviewCount: number;
@@ -238,7 +242,7 @@ export default function Home() {
             supabase
               .from("businesses")
               .select(
-                "id, name, slug, category_id, description, location, website"
+                "id, name, slug, category_id, description, location, website, author, director, release_year, image_url"
               )
               .order("created_at", { ascending: false }),
 
@@ -745,38 +749,77 @@ export default function Home() {
                   aria-label={`View ${item.name} business profile`}
                   className="group block rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-green-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 text-3xl">
-                      {categoryIcons[item.categoryName] ?? "🏢"}
-                    </div>
-                    <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
-                      {categoryLabel(item.categoryName)}
-                    </span>
-                  </div>
+                  {(item.categoryName === "Books" || item.categoryName === "Movies") ? (
+                    <>
+                      {item.image_url && (
+                        <div className="mb-4 flex h-52 items-center justify-center overflow-hidden rounded-xl bg-gray-50">
+                          <img
+                            src={item.image_url}
+                            alt={item.categoryName === "Books" ? `${item.name} book cover` : `${item.name} movie poster`}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                      )}
+                      <div className="flex justify-end">
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+                          {categoryLabel(item.categoryName)}
+                        </span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-extrabold text-gray-900 group-hover:text-green-700">
+                        {item.name}
+                      </h3>
+                      {item.categoryName === "Books" && item.author && (
+                        <p className="mt-2 text-sm text-gray-500">
+                          Author: {item.author}
+                        </p>
+                      )}
+                      {item.categoryName === "Movies" && (
+                        <>
+                          {item.director && (
+                            <p className="mt-2 text-sm text-gray-500">
+                              Director: {item.director}
+                            </p>
+                          )}
+                          {item.release_year && (
+                            <p className="mt-1 text-sm text-gray-500">
+                              Release Year: {item.release_year}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 text-3xl">
+                          {categoryIcons[item.categoryName] ?? "🏢"}
+                        </div>
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
+                          {categoryLabel(item.categoryName)}
+                        </span>
+                      </div>
+                      <h3 className="mt-5 text-lg font-extrabold text-gray-900 group-hover:text-green-700">
+                        {item.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-400">
+                        📍 {item.location || (ne ? "स्थान उपलब्ध छैन" : t.locationMissing)}
+                      </p>
+                    </>
+                  )}
 
-                  <h3 className="mt-5 text-lg font-extrabold text-gray-900 group-hover:text-green-700">
-                    {item.name}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-gray-400">
-                    📍{" "}
-                    {item.location ||
-                      (ne ? "स्थान उपलब्ध छैन" : t.locationMissing)}
-                  </p>
-
-                  <p
-                    className="mt-4 min-h-[240px] overflow-hidden text-sm leading-6 text-gray-500"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitBoxOrient: "vertical",
-                      WebkitLineClamp: 10,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {item.description ||
-                      (ne ? "विवरण उपलब्ध छैन।" : t.noDescription)}
-                  </p>
-
+                  {item.description && (
+                    <p
+                      className="mt-4 overflow-hidden text-sm leading-6 text-gray-500"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: 10,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {item.description}
+                    </p>
+                  )}
                   <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
                     <div>
                       {item.reviewCount > 0 ? (
