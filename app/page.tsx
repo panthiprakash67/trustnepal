@@ -520,18 +520,18 @@ export default function Home() {
 
           <p className="mt-5 text-sm text-gray-500">
             {t.popular}{" "}
-            {["Hotels", "Movies", "Mobiles", "Restaurants"].map(
+            {["Hotels", "Movies", "Products", "Restaurants"].map(
               (item, index) => (
                 <button
                   key={item}
                   onClick={() => {
-                    setSearch(item === "Mobiles" ? "Products" : item);
+                    setSearch(item);
                     scrollToBusinesses();
                   }}
                   className="mx-1 font-semibold text-green-800 hover:underline"
                 >
                   {ne
-                    ? ({ Hotels: "होटल", Movies: "चलचित्र", Mobiles: "मोबाइल", Restaurants: "रेस्टुरेन्ट" }[item])
+                    ? ({ Hotels: "होटल", Movies: "चलचित्र", Products: "उत्पादन", Restaurants: "रेस्टुरेन्ट" }[item])
                     : item}
                   {index !== 3 ? "," : ""}
                 </button>
