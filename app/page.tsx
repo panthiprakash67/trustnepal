@@ -425,17 +425,17 @@ export default function Home() {
     <main className="min-h-screen bg-white text-gray-900">
       {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-4">
-          <Link href="/" className="flex shrink-0 items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-700 text-xl font-black text-white">
+        <div className={`mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 ${showStickySearch ? "py-2" : "py-4"} md:py-4`}>
+          <Link href="/" className={`flex shrink-0 items-center ${showStickySearch ? "gap-1.5" : "gap-2"} md:gap-2`}>
+            <div className={`flex items-center justify-center rounded-xl bg-green-700 font-black text-white ${showStickySearch ? "h-8 w-8 text-lg" : "h-10 w-10 text-xl"} md:h-10 md:w-10 md:text-xl`}>
               T
             </div>
 
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight">
+              <h1 className={`font-extrabold tracking-tight ${showStickySearch ? "text-xl" : "text-2xl"} md:text-2xl`}>
                 Trust<span className="text-green-700">Nepal</span>
               </h1>
-              <p className="text-[10px] font-semibold tracking-widest text-gray-400">
+              <p className={`text-[10px] font-semibold tracking-widest text-gray-400 ${showStickySearch ? "hidden md:block" : ""}`}>
                 {t.tagline}
               </p>
             </div>
@@ -484,7 +484,7 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
+            <div className={showStickySearch ? "scale-90 md:scale-100" : ""}><LanguageSwitcher /></div>
 
             {authLoading ? (
               <span className="text-sm text-gray-400">{t.loading}</span>
@@ -513,7 +513,7 @@ export default function Home() {
 
                 <Link
                   href="/auth"
-                  className="rounded-full bg-green-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-800"
+                  className={`rounded-full bg-green-700 font-bold text-white shadow-sm hover:bg-green-800 ${showStickySearch ? "px-3 py-1.5 text-xs" : "px-5 py-2.5 text-sm"} md:px-5 md:py-2.5 md:text-sm`}
                 >
                   {t.join}
                 </Link>
@@ -521,6 +521,34 @@ export default function Home() {
             )}
           </div>
         </div>
+        {showStickySearch && (
+          <div className="border-t border-gray-100 px-4 pb-2 pt-2 md:hidden">
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+              <div className="flex min-w-0 flex-1 items-center px-2">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      scrollToBusinesses();
+                    }
+                  }}
+                  placeholder={t.searchPlaceholder}
+                  className="h-9 w-full min-w-0 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={scrollToBusinesses}
+                className="shrink-0 rounded-md bg-green-700 px-3 py-2 text-xs font-bold text-white"
+              >
+                {t.search}
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
 
