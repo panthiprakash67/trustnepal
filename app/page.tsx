@@ -195,6 +195,9 @@ export default function Home() {
   const [visibleCount, setVisibleCount] = useState(15);
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [databaseCategories, setDatabaseCategories] = useState<
+    { name: string; icon: string }[]
+  >(categories.slice(1));
   const [businessLoading, setBusinessLoading] = useState(true);
   const [businessError, setBusinessError] = useState("");
 
@@ -228,6 +231,26 @@ export default function Home() {
         if (businessResult.error) throw businessResult.error;
         if (categoryResult.error) throw categoryResult.error;
         if (reviewResult.error) throw reviewResult.error;
+
+        const orderedCategories = [...(categoryResult.data ?? [])].sort(
+          (a, b) => {
+            const aIndex = categories.findIndex((item) => item.name === a.name);
+            const bIndex = categories.findIndex((item) => item.name === b.name);
+
+            return (
+              (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+                (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex) ||
+              a.name.localeCompare(b.name)
+            );
+          }
+        );
+
+        setDatabaseCategories(
+          orderedCategories.map((category) => ({
+            name: category.name,
+            icon: categoryIcons[category.name] ?? "🏢",
+          }))
+        );
 
         const categoryMap = new Map<number, string>();
 
@@ -361,6 +384,8 @@ export default function Home() {
   }, [filteredBusinesses, sortBy]);
 
   const visibleBusinesses = sortedBusinesses.slice(0, visibleCount);
+
+  const allCategories = [categories[0], ...databaseCategories];
 
   const categoryLabel = (name: string) => {
     const index = categories.findIndex((item) => item.name === name);
@@ -546,7 +571,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
-          {categories
+          {allCategories
             .filter((item) => item.name !== "All")
             .map((item) => (
               <button
@@ -597,21 +622,6 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="mb-8 flex gap-2 overflow-x-auto pb-2">
-            {categories.map((item) => (
-              <button
-                key={item.name}
-                onClick={() => setActiveCategory(item.name)}
-                className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition ${
-                  activeCategory === item.name
-                    ? "bg-green-700 text-white"
-                    : "border border-gray-200 bg-white text-gray-600 hover:border-green-500 hover:text-green-700"
-                }`}
-              >
-                {item.icon} {categoryLabel(item.name)}
-              </button>
-            ))}
-          </div>
 
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-gray-600">
@@ -673,7 +683,15 @@ export default function Home() {
                       (ne ? "स्थान उपलब्ध छैन" : t.locationMissing)}
                   </p>
 
-                  <p className="mt-4 min-h-10 text-sm leading-6 text-gray-500">
+                  <p
+                    className="mt-4 min-h-[240px] overflow-hidden text-sm leading-6 text-gray-500"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitBoxOrient: "vertical",
+                      WebkitLineClamp: 10,
+                      overflow: "hidden",
+                    }}
+                  >
                     {item.description ||
                       (ne ? "विवरण उपलब्ध छैन।" : t.noDescription)}
                   </p>
@@ -812,4 +830,3 @@ export default function Home() {
     </main>
   );
 }
-
