@@ -190,6 +190,7 @@ export default function Home() {
   const t = translations[language];
 
   const [search, setSearch] = useState("");
+  const [showStickySearch, setShowStickySearch] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
   const [sortBy, setSortBy] = useState<"newest" | "highest" | "most">("newest");
   const [visibleCount, setVisibleCount] = useState(15);
@@ -204,6 +205,27 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [logoutLoading, setLogoutLoading] = useState(false);
+
+  useEffect(() => {
+    const updateStickySearch = () => {
+      const heroSearch = document.getElementById("hero-search");
+      if (!heroSearch) return;
+
+      setShowStickySearch(
+        heroSearch.getBoundingClientRect().bottom <= 80
+      );
+    };
+
+    window.addEventListener("scroll", updateStickySearch, {
+      passive: true,
+    });
+
+    updateStickySearch();
+
+    return () => {
+      window.removeEventListener("scroll", updateStickySearch);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadBusinesses() {
@@ -419,16 +441,46 @@ export default function Home() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-8 text-sm font-semibold text-gray-600 md:flex">
-            <a href="#categories" className="hover:text-green-700">
-              {t.navCategories}
-            </a>
-            <a href="#trending" className="hover:text-green-700">
-              {t.navBusinesses}
-            </a>
-            <a href="#about" className="hover:text-green-700">
-              {t.navAbout}
-            </a>
+          <nav className="hidden min-w-0 flex-1 items-center justify-center md:flex">
+            {showStickySearch ? (
+              <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+                <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
+                  <span className="text-lg text-gray-400">⌕</span>
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        scrollToBusinesses();
+                      }
+                    }}
+                    placeholder={t.searchPlaceholder}
+                    className="h-10 w-full min-w-0 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={scrollToBusinesses}
+                  className="shrink-0 rounded-lg bg-green-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-green-800"
+                >
+                  {t.search}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-8 text-sm font-semibold text-gray-600">
+                <a href="#categories" className="hover:text-green-700">
+                  {t.navCategories}
+                </a>
+                <a href="#trending" className="hover:text-green-700">
+                  {t.navBusinesses}
+                </a>
+                <a href="#about" className="hover:text-green-700">
+                  {t.navAbout}
+                </a>
+              </div>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -471,6 +523,7 @@ export default function Home() {
         </div>
       </header>
 
+
       {/* HERO */}
       <section className="relative overflow-hidden bg-[#f0f8f2]">
         <div className="pointer-events-none absolute -right-20 -top-24 h-80 w-80 rounded-full bg-green-200/40 blur-3xl" />
@@ -490,7 +543,7 @@ export default function Home() {
             {t.heroDescription}
           </p>
 
-          <div className="mx-auto mt-10 flex max-w-2xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-green-900/10 sm:flex-row sm:items-center">
+          <div id="hero-search" className="mx-auto mt-10 flex max-w-2xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-green-900/10 sm:flex-row sm:items-center">
             <div className="flex flex-1 items-center gap-3 px-4">
               <span className="text-xl">🔍</span>
               <input
