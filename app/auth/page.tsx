@@ -69,6 +69,7 @@ export default function AuthPage() {
   const router = useRouter();
 
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -380,6 +381,11 @@ const [showPassword, setShowPassword] = useState(false);
       return;
     }
 
+    if (!termsAccepted) {
+      setError("Please agree to the Terms & Conditions and Privacy Policy to complete registration.");
+      return;
+    }
+
     const validPhone = getValidPhone();
 
     if (!validPhone) {
@@ -418,6 +424,11 @@ const [showPassword, setShowPassword] = useState(false);
     let validPhone: PhoneDetails | null = null;
 
     if (mode === "signup") {
+      if (!termsAccepted) {
+        setError("Please agree to the Terms & Conditions and Privacy Policy to create an account.");
+        return;
+      }
+
       if (!firstName.trim() || !lastName.trim()) {
         setError("First Name and Last Name are required.");
         return;
@@ -501,6 +512,7 @@ const [showPassword, setShowPassword] = useState(false);
 
   function switchMode(nextMode: "login" | "signup") {
     setMode(nextMode);
+    setTermsAccepted(false);
     setError("");
     setMessage("");
   }
@@ -588,6 +600,28 @@ const [showPassword, setShowPassword] = useState(false);
 
           <form onSubmit={handleGooglePhoneSubmit} className="space-y-4">
             {renderPhoneFields()}
+
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
+                required
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
+              />
+              <span>
+                I agree to the{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+                  Terms &amp; Conditions
+                </a>{" "}
+                and{" "}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+                  Privacy Policy
+                </a>{" "}
+                of TrustNepal.
+              </span>
+            </label>
+
             <button
               type="submit"
               disabled={loading}
@@ -845,6 +879,29 @@ const [showPassword, setShowPassword] = useState(false);
               Password must contain at least 6 characters.
             </p>
           </div>
+
+          {mode === "signup" && (
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
+                required
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
+              />
+              <span>
+                I agree to the{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+                  Terms &amp; Conditions
+                </a>{" "}
+                and{" "}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+                  Privacy Policy
+                </a>{" "}
+                of TrustNepal.
+              </span>
+            </label>
+          )}
 
           <button
             type="submit"

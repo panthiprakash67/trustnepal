@@ -944,6 +944,12 @@ export default function Home() {
             <Link href="/disclaimer" className="hover:text-white">
               {t.disclaimer}
             </Link>
+            <Link href="/terms" className="hover:text-white">
+              Terms &amp; Conditions
+            </Link>
+            <Link href="/privacy" className="hover:text-white">
+              Privacy Policy
+            </Link>
           </div>
 
           <p className="text-xs text-gray-500">
