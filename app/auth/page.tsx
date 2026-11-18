@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -84,6 +84,7 @@ const [showPassword, setShowPassword] = useState(false);
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
+  const photoPreviewRef = useRef<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -94,6 +95,15 @@ const [showPassword, setShowPassword] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewRef.current) {
+        URL.revokeObjectURL(photoPreviewRef.current);
+        photoPreviewRef.current = null;
+      }
+    };
+  }, []);
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.code === phoneCountry) || countries[0],
@@ -294,29 +304,41 @@ const [showPassword, setShowPassword] = useState(false);
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     setError("");
 
+    if (photoPreviewRef.current) {
+      URL.revokeObjectURL(photoPreviewRef.current);
+      photoPreviewRef.current = null;
+    }
+
+    setPhotoPreview("");
+
     const selectedFile = event.target.files?.[0];
 
     if (!selectedFile) {
       setPhoto(null);
-      setPhotoPreview("");
       return;
     }
 
     if (
       !["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
     ) {
+      setPhoto(null);
       setError("Please select a JPG, PNG, or WebP image.");
       event.target.value = "";
       return;
     }
+
     if (selectedFile.size > 2 * 1024 * 1024) {
+      setPhoto(null);
       setError("Profile photo must be smaller than 2 MB.");
       event.target.value = "";
       return;
     }
 
     setPhoto(selectedFile);
-    setPhotoPreview(URL.createObjectURL(selectedFile));
+
+    const newPreviewUrl = URL.createObjectURL(selectedFile);
+    photoPreviewRef.current = newPreviewUrl;
+    setPhotoPreview(newPreviewUrl);
   }
 
   async function handleGoogleLogin() {
@@ -772,7 +794,7 @@ const [showPassword, setShowPassword] = useState(false);
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  JPG, PNG or other image formats. Maximum 5 MB.
+                  JPG, PNG or WebP images. Maximum 2 MB.
                 </p>
               </div>
             </>

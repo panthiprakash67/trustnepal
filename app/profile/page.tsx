@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
@@ -14,11 +14,22 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     async function loadProfile() {
@@ -131,6 +142,13 @@ export default function ProfilePage() {
       if (saveError) throw saveError;
 
       setAvatarUrl(finalAvatarUrl);
+
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+
+      setPreviewUrl(null);
       setSelectedFile(null);
       setMessage("Your profile has been saved successfully!");
     } catch (err) {
@@ -184,7 +202,7 @@ export default function ProfilePage() {
               <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-green-100 bg-gray-100">
                 {selectedFile ? (
                   <img
-                    src={URL.createObjectURL(selectedFile)}
+                    src={previewUrl ?? ""}
                     alt="Selected profile"
                     className="h-full w-full object-cover"
                   />
@@ -213,14 +231,29 @@ export default function ProfilePage() {
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
+
+                  if (previewUrlRef.current) {
+                    URL.revokeObjectURL(previewUrlRef.current);
+                    previewUrlRef.current = null;
+                  }
+
                   setSelectedFile(file);
+
+                  if (file) {
+                    const newPreviewUrl = URL.createObjectURL(file);
+                    previewUrlRef.current = newPreviewUrl;
+                    setPreviewUrl(newPreviewUrl);
+                  } else {
+                    setPreviewUrl(null);
+                  }
+
                   setMessage("");
                   setError("");
                 }}
               />
 
               <p className="mt-2 text-xs text-gray-400">
-                JPG, PNG or WebP images. Maximum 5 MB.
+                JPG, PNG or WebP images. Maximum 2 MB.
               </p>
             </div>
 
