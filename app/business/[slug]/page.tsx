@@ -265,6 +265,10 @@ function BusinessProfileContent() {
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [replies, setReplies] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -372,13 +376,28 @@ function BusinessProfileContent() {
     };
   }, []);
 
+  const REVIEWS_PAGE_SIZE = 10;
+
   async function loadReviews(businessId: number) {
+    const { data: statsData, error: statsError } = await (supabase as any)
+      .rpc("get_business_review_stats", {
+        p_business_id: businessId,
+      });
+
+    if (statsError) throw statsError;
+
+    const stats = statsData?.[0];
+    setTotalReviews(Number(stats?.total_reviews ?? 0));
+    setAverageRating(Number(stats?.average_rating ?? 0));
+
     const { data, error } = await supabase
       .from("reviews")
       .select("id, user_id, rating, title, review_text, created_at")
       .eq("business_id", businessId)
       .eq("status", "approved")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(0, REVIEWS_PAGE_SIZE - 1);
 
     if (error) throw error;
 
@@ -386,7 +405,7 @@ function BusinessProfileContent() {
 
     if (reviewRows.length === 0) {
       setReviews([]);
-      setReplies([]);
+      await loadReplies([]);
       return;
     }
 
@@ -413,7 +432,6 @@ function BusinessProfileContent() {
 
     const reviewsWithProfiles: Review[] = reviewRows.map((review) => {
       const profile = profileMap.get(review.user_id);
-
       return {
         ...review,
         full_name: profile?.full_name ?? null,
@@ -422,21 +440,18 @@ function BusinessProfileContent() {
     });
 
     setReviews(reviewsWithProfiles);
-
     await loadReplies(reviewRows.map((review) => review.id));
   }
 
-  async function loadReplies(reviewIds: number[]) {
+  async function loadReplies(reviewIds: number[], append = false) {
     if (reviewIds.length === 0) {
-      setReplies([]);
+      if (!append) setReplies([]);
       return;
     }
 
     const { data, error } = await supabase
       .from("review_replies")
-      .select(
-        "id, review_id, user_id, parent_reply_id, reply_text, created_at"
-      )
+      .select("id, review_id, user_id, parent_reply_id, reply_text, created_at")
       .in("review_id", reviewIds)
       .order("created_at", { ascending: true });
 
@@ -445,7 +460,7 @@ function BusinessProfileContent() {
     const replyRows = data ?? [];
 
     if (replyRows.length === 0) {
-      setReplies([]);
+      if (!append) setReplies([]);
       return;
     }
 
@@ -472,7 +487,6 @@ function BusinessProfileContent() {
 
     const repliesWithProfiles: Reply[] = replyRows.map((reply) => {
       const profile = profileMap.get(reply.user_id);
-
       return {
         ...reply,
         full_name: profile?.full_name ?? null,
@@ -480,9 +494,86 @@ function BusinessProfileContent() {
       };
     });
 
-    setReplies(repliesWithProfiles);
+    setReplies((current) =>
+      append
+        ? [
+            ...current.filter(
+              (existing) => !reviewIds.includes(existing.review_id)
+            ),
+            ...repliesWithProfiles,
+          ]
+        : repliesWithProfiles
+    );
   }
 
+  async function loadMoreReviews() {
+    if (!business || loadingMoreReviews || reviews.length >= totalReviews) {
+      return;
+    }
+
+    setLoadingMoreReviews(true);
+    setLoadMoreError("");
+
+    try {
+      const offset = reviews.length;
+
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, user_id, rating, title, review_text, created_at")
+        .eq("business_id", business.id)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(offset, offset + REVIEWS_PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const reviewRows = data ?? [];
+      if (reviewRows.length === 0) return;
+
+      const reviewUserIds = [
+        ...new Set(reviewRows.map((review) => review.user_id)),
+      ];
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("public_profiles")
+        .select("user_id, full_name, avatar_url")
+        .in("user_id", reviewUserIds);
+
+      if (profileError) throw profileError;
+
+      const profileMap = new Map(
+        (profileData ?? []).map((profile) => [
+          profile.user_id,
+          {
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+          },
+        ])
+      );
+
+      const reviewsWithProfiles: Review[] = reviewRows.map((review) => {
+        const profile = profileMap.get(review.user_id);
+        return {
+          ...review,
+          full_name: profile?.full_name ?? null,
+          avatar_url: profile?.avatar_url ?? null,
+        };
+      });
+
+      setReviews((current) => [...current, ...reviewsWithProfiles]);
+      await loadReplies(
+        reviewRows.map((review) => review.id),
+        true
+      );
+    } catch (err) {
+      setLoadMoreError(
+        err instanceof Error ? err.message : "Unable to load more reviews."
+      );
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  }
   useEffect(() => {
     async function loadBusiness() {
       setLoading(true);
@@ -668,13 +759,7 @@ function BusinessProfileContent() {
     }
   }
 
-  const averageRating =
-    reviews.length > 0
-      ? reviews.reduce((total, review) => total + review.rating, 0) /
-        reviews.length
-      : 0;
-
-  if (loading) {
+if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50">
         <p className="text-lg font-medium text-gray-600">
@@ -735,7 +820,7 @@ function BusinessProfileContent() {
                 Average Rating
               </span>
               <span className="text-lg font-bold text-green-700">
-                {reviews.length > 0 ? averageRating.toFixed(1) : "—"} ★
+                {totalReviews > 0 ? averageRating.toFixed(1) : "—"} ★
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -743,7 +828,7 @@ function BusinessProfileContent() {
                 Total Reviews
               </span>
               <span className="text-lg font-bold text-gray-900">
-                {reviews.length}
+                {totalReviews}
               </span>
             </div>
           </div>
@@ -1047,7 +1132,7 @@ function BusinessProfileContent() {
               Customer Reviews
             </h2>
             <span className="text-sm text-gray-500">
-              {reviews.length} reviews
+              {totalReviews} reviews
             </span>
           </div>
 
@@ -1195,6 +1280,24 @@ function BusinessProfileContent() {
             </div>
           )}
 
+          {reviews.length < totalReviews && (
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={loadMoreReviews}
+                disabled={loadingMoreReviews}
+                className="rounded-lg border border-green-700 px-7 py-3 font-semibold text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingMoreReviews ? "Loading..." : "Load More Reviews"}
+              </button>
+            </div>
+          )}
+
+          {loadMoreError && (
+            <p className="mt-3 text-center text-sm text-red-600">
+              {loadMoreError}
+            </p>
+          )}
           {replyError && (
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
               {replyError}
