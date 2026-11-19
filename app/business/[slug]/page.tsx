@@ -819,9 +819,37 @@ if (loading) {
               <span className="text-sm font-medium text-gray-600">
                 Average Rating
               </span>
-              <span className="text-lg font-bold text-green-700">
-                {totalReviews > 0 ? averageRating.toFixed(1) : "—"} ★
-              </span>
+              {totalReviews > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const fill = Math.max(0, Math.min(100, (averageRating - star + 1) * 100));
+                      const starColor =
+                        averageRating >= 4.5 ? "#00A878" :
+                        averageRating >= 3.5 ? "#73B85A" :
+                        averageRating >= 2.5 ? "#E8B43A" :
+                        averageRating >= 1.5 ? "#E98236" :
+                        "#D94B4B";
+
+                      return (
+                        <span key={star} className="relative flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-[2px] bg-gray-200">
+                          <span className="absolute inset-0 flex items-center justify-center text-base text-white">
+                            {String.fromCodePoint(0x2605)}
+                          </span>
+                          <span className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden" style={{ width: `${fill}%`, backgroundColor: starColor }}>
+                            <span className="flex h-full w-[22px] shrink-0 items-center justify-center text-base text-white">
+                              {String.fromCodePoint(0x2605)}
+                            </span>
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <span className="text-lg font-bold text-gray-900">{averageRating.toFixed(1)}</span>
+                </div>
+              ) : (
+                <span className="text-lg font-bold text-gray-500">—</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-600">
@@ -1044,21 +1072,44 @@ if (loading) {
                     <button
                       key={star}
                       type="button"
-                      onClick={() => setRating(star)}
-                      aria-label={`Rate ${star} out of 5 stars`}
-                      className={`text-4xl transition ${
-                        star <= rating
-                          ? "text-yellow-400"
-                          : "text-gray-300"
-                      } hover:scale-110`}
+                      onClick={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const clickedHalf = event.clientX - rect.left < rect.width / 2;
+                        setRating(star - (clickedHalf ? 0.5 : 0));
+                      }}
+                      aria-label={`Rate ${star - 0.5} or ${star} out of 5 stars`}
+                      className="relative h-9 w-9 overflow-hidden rounded-sm bg-gray-300 transition hover:scale-110"
                     >
-                      ★
+                      <span className="absolute inset-0 flex items-center justify-center text-xl text-white">
+                        {String.fromCodePoint(0x2605)}
+                      </span>
+                      <span
+                        className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden text-xl text-white"
+                        style={{
+                          width:
+                            rating >= star
+                              ? "100%"
+                              : rating >= star - 0.5
+                                ? "50%"
+                                : "0%",
+                          backgroundColor:
+                            rating >= 4.5 ? "#00A878" :
+                            rating >= 3.5 ? "#73B85A" :
+                            rating >= 2.5 ? "#E8B43A" :
+                            rating >= 1.5 ? "#E98236" :
+                            "#D94B4B",
+                        }}
+                      >
+                        <span className="absolute left-0 flex h-full w-9 items-center justify-center">
+                          {String.fromCodePoint(0x2605)}
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
 
                 <p className="mt-2 text-sm text-gray-500">
-                  {rating} out of 5 stars
+                  {rating.toFixed(1)} out of 5 stars
                 </p>
               </div>
 

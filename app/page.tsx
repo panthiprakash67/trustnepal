@@ -7,15 +7,15 @@ import { useLanguage } from "./components/language-provider";
 import LanguageSwitcher from "./components/language-switcher";
 
 const categories = [
-  { name: "All", icon: "✨" },
-  { name: "Products", icon: "📱" },
-  { name: "Movies", icon: "🎬" },
-  { name: "Hotels", icon: "🏨" },
-  { name: "Restaurants", icon: "🍽️" },
-  { name: "Education", icon: "🎓" },
-  { name: "Health", icon: "🏥" },
-  { name: "Services", icon: "🏢" },
-  { name: "Finance", icon: "💰" },
+  { name: "All", icon: String.fromCodePoint(0x2728) },
+  { name: "Products", icon: String.fromCodePoint(0x1F4F1) },
+  { name: "Movies", icon: String.fromCodePoint(0x1F3AC) },
+  { name: "Hotels", icon: String.fromCodePoint(0x1F3E8) },
+  { name: "Restaurants", icon: String.fromCodePoint(0x1F37D, 0xFE0F) },
+  { name: "Education", icon: String.fromCodePoint(0x1F393) },
+  { name: "Health", icon: String.fromCodePoint(0x1F3E5) },
+  { name: "Services", icon: String.fromCodePoint(0x1F3E2) },
+  { name: "Finance", icon: String.fromCodePoint(0x1F4B0) },
 ];
 
 type Business = {
@@ -36,16 +36,33 @@ type Business = {
 };
 
 const categoryIcons: Record<string, string> = {
-  Products: "📱",
-  Movies: "🎬",
-  Hotels: "🏨",
-  Restaurants: "🍽️",
-  Education: "🎓",
-  Health: "🏥",
-  Services: "🏢",
-  Finance: "💰",
+  Products: String.fromCodePoint(0x1F4F1),
+  Movies: String.fromCodePoint(0x1F3AC),
+  Hotels: String.fromCodePoint(0x1F3E8),
+  Restaurants: String.fromCodePoint(0x1F37D, 0xFE0F),
+  Education: String.fromCodePoint(0x1F393),
+  Health: String.fromCodePoint(0x1F3E5),
+  Services: String.fromCodePoint(0x1F3E2),
+  Finance: String.fromCodePoint(0x1F4B0),
 };
 
+
+function getCategoryIcon(name: string): string {
+  const value = name.toLowerCase().trim();
+
+  if (value.includes("product")) return String.fromCodePoint(0x1F4F1);
+  if (value.includes("movie") || value.includes("film")) return String.fromCodePoint(0x1F3AC);
+  if (value.includes("hotel")) return String.fromCodePoint(0x1F3E8);
+  if (value.includes("restaurant") || value.includes("food")) return String.fromCodePoint(0x1F37D, 0xFE0F);
+  if (value.includes("education") || value.includes("school") || value.includes("college")) return String.fromCodePoint(0x1F393);
+  if (value.includes("health") || value.includes("hospital")) return String.fromCodePoint(0x1F3E5);
+  if (value.includes("service")) return String.fromCodePoint(0x1F3E2);
+  if (value.includes("finance") || value.includes("bank")) return String.fromCodePoint(0x1F4B0);
+  if (value.includes("book")) return String.fromCodePoint(0x1F4DA);
+  if (value.includes("internet") || value.includes("broadband")) return String.fromCodePoint(0x1F310);
+
+  return String.fromCodePoint(0x1F3F7, 0xFE0F);
+}
 const translations = {
   en: {
     tagline: "NEPAL'S REVIEW PLATFORM",
@@ -112,82 +129,113 @@ const translations = {
     ],
   },
   ne: {
-    tagline: "नेपालको समीक्षा मञ्च",
-    navCategories: "श्रेणीहरू",
-    navBusinesses: "व्यवसायहरू",
-    navAbout: "हाम्रोबारे",
-    loading: "लोड हुँदैछ...",
-    logout: "लगआउट",
-    pleaseWait: "कृपया पर्खनुहोस्...",
-    login: "लगइन",
-    join: "सामेल हुनुहोस्",
-    madeForNepal: "नेपालका लागि, नेपालीहरूद्वारा",
-    heroFirst: "नेपाल के सोच्छ",
-    heroSecond: "जान्नुहोस्।",
+    tagline: "à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¥‹ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤®à¤žà¥à¤š",
+    navCategories: "à¤¶à¥à¤°à¥‡à¤£à¥€à¤¹à¤°à¥‚",
+    navBusinesses: "à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯à¤¹à¤°à¥‚",
+    navAbout: "à¤¹à¤¾à¤®à¥à¤°à¥‹à¤¬à¤¾à¤°à¥‡",
+    loading: "à¤²à¥‹à¤¡ à¤¹à¥à¤à¤¦à¥ˆà¤›...",
+    logout: "à¤²à¤—à¤†à¤‰à¤Ÿ",
+    pleaseWait: "à¤•à¥ƒà¤ªà¤¯à¤¾ à¤ªà¤°à¥à¤–à¤¨à¥à¤¹à¥‹à¤¸à¥...",
+    login: "à¤²à¤—à¤‡à¤¨",
+    join: "à¤¸à¤¾à¤®à¥‡à¤² à¤¹à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    madeForNepal: "à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¤¾ à¤²à¤¾à¤—à¤¿, à¤¨à¥‡à¤ªà¤¾à¤²à¥€à¤¹à¤°à¥‚à¤¦à¥à¤µà¤¾à¤°à¤¾",
+    heroFirst: "à¤¨à¥‡à¤ªà¤¾à¤² à¤•à¥‡ à¤¸à¥‹à¤šà¥à¤›",
+    heroSecond: "à¤œà¤¾à¤¨à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
     heroDescription:
-      "वास्तविक समीक्षा पढ्नुहोस्, रेटिङ तुलना गर्नुहोस् र आफ्ना अनुभव साझा गर्नुहोस्। TrustNepal सँग सही निर्णय लिनुहोस्।",
-    searchPlaceholder: "व्यवसाय, उत्पादन, होटल खोज्नुहोस्...",
-    search: "खोज्नुहोस्",
-    popular: "लोकप्रिय खोजी:",
-    stats: ["नेपालका लागि निर्मित", "वास्तविक समीक्षा", "हाम्रो समुदाय", "सही निर्णय"],
-    explore: "TrustNepal अन्वेषण गर्नुहोस्",
-    allCategories: "सबै श्रेणीहरू",
-    categoryDescription: "तपाईंलाई चाहिने सबै जानकारी एकै ठाउँमा।",
-    discover: "खोज्नुहोस् र तुलना गर्नुहोस्",
-    exploreBusinesses: "व्यवसायहरू हेर्नुहोस्",
-    businessDescription: "TrustNepal मा सूचीकृत व्यवसायहरू पत्ता लगाउनुहोस्।",
-    clearFilters: "फिल्टर हटाउनुहोस्",
-    loadingBusinesses: "व्यवसायहरू लोड हुँदैछन्...",
-    couldNotLoad: "व्यवसायहरू लोड गर्न सकिएन।",
-    tryAgain: "पुनः प्रयास गर्नुहोस्",
-    noReviews: "अहिलेसम्म स्वीकृत समीक्षा छैन",
-    approvedReviews: "स्वीकृत समीक्षा",
-    locationMissing: "स्थान उपलब्ध छैन",
-    noDescription: "विवरण उपलब्ध छैन।",
-    viewProfile: "प्रोफाइल हेर्नुहोस्",
-    noBusinesses: "कुनै व्यवसाय भेटिएन",
-    tryAnother: "अर्को शब्द खोज्नुहोस् वा फरक श्रेणी छान्नुहोस्।",
-    showAll: "सबै व्यवसाय देखाउनुहोस्",
-    callTitle: "तपाईंको अनुभव महत्त्वपूर्ण छ।",
+      "à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤ªà¤¢à¥à¤¨à¥à¤¹à¥‹à¤¸à¥, à¤°à¥‡à¤Ÿà¤¿à¤™ à¤¤à¥à¤²à¤¨à¤¾ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥ à¤° à¤†à¤«à¥à¤¨à¤¾ à¤…à¤¨à¥à¤­à¤µ à¤¸à¤¾à¤à¤¾ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤ TrustNepal à¤¸à¤à¤— à¤¸à¤¹à¥€ à¤¨à¤¿à¤°à¥à¤£à¤¯ à¤²à¤¿à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
+    searchPlaceholder: "à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯, à¤‰à¤¤à¥à¤ªà¤¾à¤¦à¤¨, à¤¹à¥‹à¤Ÿà¤² à¤–à¥‹à¤œà¥à¤¨à¥à¤¹à¥‹à¤¸à¥...",
+    search: "à¤–à¥‹à¤œà¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    popular: "à¤²à¥‹à¤•à¤ªà¥à¤°à¤¿à¤¯ à¤–à¥‹à¤œà¥€:",
+    stats: ["à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¤¾ à¤²à¤¾à¤—à¤¿ à¤¨à¤¿à¤°à¥à¤®à¤¿à¤¤", "à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤¸à¤®à¥€à¤•à¥à¤·à¤¾", "à¤¹à¤¾à¤®à¥à¤°à¥‹ à¤¸à¤®à¥à¤¦à¤¾à¤¯", "à¤¸à¤¹à¥€ à¤¨à¤¿à¤°à¥à¤£à¤¯"],
+    explore: "TrustNepal à¤…à¤¨à¥à¤µà¥‡à¤·à¤£ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    allCategories: "à¤¸à¤¬à¥ˆ à¤¶à¥à¤°à¥‡à¤£à¥€à¤¹à¤°à¥‚",
+    categoryDescription: "à¤¤à¤ªà¤¾à¤ˆà¤‚à¤²à¤¾à¤ˆ à¤šà¤¾à¤¹à¤¿à¤¨à¥‡ à¤¸à¤¬à¥ˆ à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€ à¤à¤•à¥ˆ à¤ à¤¾à¤‰à¤à¤®à¤¾à¥¤",
+    discover: "à¤–à¥‹à¤œà¥à¤¨à¥à¤¹à¥‹à¤¸à¥ à¤° à¤¤à¥à¤²à¤¨à¤¾ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    exploreBusinesses: "à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯à¤¹à¤°à¥‚ à¤¹à¥‡à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    businessDescription: "TrustNepal à¤®à¤¾ à¤¸à¥‚à¤šà¥€à¤•à¥ƒà¤¤ à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯à¤¹à¤°à¥‚ à¤ªà¤¤à¥à¤¤à¤¾ à¤²à¤—à¤¾à¤‰à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
+    clearFilters: "à¤«à¤¿à¤²à¥à¤Ÿà¤° à¤¹à¤Ÿà¤¾à¤‰à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    loadingBusinesses: "à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯à¤¹à¤°à¥‚ à¤²à¥‹à¤¡ à¤¹à¥à¤à¤¦à¥ˆà¤›à¤¨à¥...",
+    couldNotLoad: "à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯à¤¹à¤°à¥‚ à¤²à¥‹à¤¡ à¤—à¤°à¥à¤¨ à¤¸à¤•à¤¿à¤à¤¨à¥¤",
+    tryAgain: "à¤ªà¥à¤¨à¤ƒ à¤ªà¥à¤°à¤¯à¤¾à¤¸ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    noReviews: "à¤…à¤¹à¤¿à¤²à¥‡à¤¸à¤®à¥à¤® à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤›à¥ˆà¤¨",
+    approvedReviews: "à¤¸à¥à¤µà¥€à¤•à¥ƒà¤¤ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾",
+    locationMissing: "à¤¸à¥à¤¥à¤¾à¤¨ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤›à¥ˆà¤¨",
+    noDescription: "à¤µà¤¿à¤µà¤°à¤£ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤›à¥ˆà¤¨à¥¤",
+    viewProfile: "à¤ªà¥à¤°à¥‹à¤«à¤¾à¤‡à¤² à¤¹à¥‡à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    noBusinesses: "à¤•à¥à¤¨à¥ˆ à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯ à¤­à¥‡à¤Ÿà¤¿à¤à¤¨",
+    tryAnother: "à¤…à¤°à¥à¤•à¥‹ à¤¶à¤¬à¥à¤¦ à¤–à¥‹à¤œà¥à¤¨à¥à¤¹à¥‹à¤¸à¥ à¤µà¤¾ à¤«à¤°à¤• à¤¶à¥à¤°à¥‡à¤£à¥€ à¤›à¤¾à¤¨à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
+    showAll: "à¤¸à¤¬à¥ˆ à¤µà¥à¤¯à¤µà¤¸à¤¾à¤¯ à¤¦à¥‡à¤–à¤¾à¤‰à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    callTitle: "à¤¤à¤ªà¤¾à¤ˆà¤‚à¤•à¥‹ à¤…à¤¨à¥à¤­à¤µ à¤®à¤¹à¤¤à¥à¤¤à¥à¤µà¤ªà¥‚à¤°à¥à¤£ à¤›à¥¤",
     callDescription:
-      "अरूलाई राम्रो निर्णय लिन सहयोग गर्नुहोस्। आफ्ना वास्तविक अनुभव साझा गर्नुहोस् र नेपालको विश्वासिलो समीक्षा समुदायको हिस्सा बन्नुहोस्।",
-    exploreTrust: "TrustNepal हेर्नुहोस्",
-    joinToday: "आजै TrustNepal मा सामेल हुनुहोस्",
-    about: "हाम्रोबारे",
+      "à¤…à¤°à¥‚à¤²à¤¾à¤ˆ à¤°à¤¾à¤®à¥à¤°à¥‹ à¤¨à¤¿à¤°à¥à¤£à¤¯ à¤²à¤¿à¤¨ à¤¸à¤¹à¤¯à¥‹à¤— à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤ à¤†à¤«à¥à¤¨à¤¾ à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤…à¤¨à¥à¤­à¤µ à¤¸à¤¾à¤à¤¾ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥ à¤° à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¥‹ à¤µà¤¿à¤¶à¥à¤µà¤¾à¤¸à¤¿à¤²à¥‹ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤¸à¤®à¥à¤¦à¤¾à¤¯à¤•à¥‹ à¤¹à¤¿à¤¸à¥à¤¸à¤¾ à¤¬à¤¨à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
+    exploreTrust: "TrustNepal à¤¹à¥‡à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    joinToday: "à¤†à¤œà¥ˆ TrustNepal à¤®à¤¾ à¤¸à¤¾à¤®à¥‡à¤² à¤¹à¥à¤¨à¥à¤¹à¥‹à¤¸à¥",
+    about: "à¤¹à¤¾à¤®à¥à¤°à¥‹à¤¬à¤¾à¤°à¥‡",
     aboutDescription:
-      "TrustNepal नेपालका उपभोक्ताहरूलाई जोड्ने उद्देश्यले बनाइएको मञ्च हो। हाम्रो लक्ष्य नेपालका सबै मानिसलाई वास्तविक समीक्षा र पारदर्शी रेटिङ उपलब्ध गराउनु हो।",
-    discoverRate: "खोज्नुहोस्। मूल्याङ्कन गर्नुहोस्। समीक्षा गर्नुहोस्। विश्वास गर्नुहोस्।",
+      "TrustNepal à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¤¾ à¤‰à¤ªà¤­à¥‹à¤•à¥à¤¤à¤¾à¤¹à¤°à¥‚à¤²à¤¾à¤ˆ à¤œà¥‹à¤¡à¥à¤¨à¥‡ à¤‰à¤¦à¥à¤¦à¥‡à¤¶à¥à¤¯à¤²à¥‡ à¤¬à¤¨à¤¾à¤‡à¤à¤•à¥‹ à¤®à¤žà¥à¤š à¤¹à¥‹à¥¤ à¤¹à¤¾à¤®à¥à¤°à¥‹ à¤²à¤•à¥à¤·à¥à¤¯ à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¤¾ à¤¸à¤¬à¥ˆ à¤®à¤¾à¤¨à¤¿à¤¸à¤²à¤¾à¤ˆ à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤° à¤ªà¤¾à¤°à¤¦à¤°à¥à¤¶à¥€ à¤°à¥‡à¤Ÿà¤¿à¤™ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤—à¤°à¤¾à¤‰à¤¨à¥ à¤¹à¥‹à¥¤",
+    discoverRate: "à¤–à¥‹à¤œà¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤ à¤®à¥‚à¤²à¥à¤¯à¤¾à¤™à¥à¤•à¤¨ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤ à¤µà¤¿à¤¶à¥à¤µà¤¾à¤¸ à¤—à¤°à¥à¤¨à¥à¤¹à¥‹à¤¸à¥à¥¤",
     aboutTagline:
-      "जानकारीमा आधारित निर्णय र वास्तविक अनुभवबाट राम्रो नेपाल निर्माण हुन्छ।",
-    proudly: "नेपालका लागि गर्वका साथ निर्मित।",
-    footerTagline: "नेपालको विश्वासिलो समीक्षा मञ्च।",
-    disclaimer: "अस्वीकरण",
-    copyright: "सर्वाधिकार सुरक्षित।",
+      "à¤œà¤¾à¤¨à¤•à¤¾à¤°à¥€à¤®à¤¾ à¤†à¤§à¤¾à¤°à¤¿à¤¤ à¤¨à¤¿à¤°à¥à¤£à¤¯ à¤° à¤µà¤¾à¤¸à¥à¤¤à¤µà¤¿à¤• à¤…à¤¨à¥à¤­à¤µà¤¬à¤¾à¤Ÿ à¤°à¤¾à¤®à¥à¤°à¥‹ à¤¨à¥‡à¤ªà¤¾à¤² à¤¨à¤¿à¤°à¥à¤®à¤¾à¤£ à¤¹à¥à¤¨à¥à¤›à¥¤",
+    proudly: "à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¤¾ à¤²à¤¾à¤—à¤¿ à¤—à¤°à¥à¤µà¤•à¤¾ à¤¸à¤¾à¤¥ à¤¨à¤¿à¤°à¥à¤®à¤¿à¤¤à¥¤",
+    footerTagline: "à¤¨à¥‡à¤ªà¤¾à¤²à¤•à¥‹ à¤µà¤¿à¤¶à¥à¤µà¤¾à¤¸à¤¿à¤²à¥‹ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤®à¤žà¥à¤šà¥¤",
+    disclaimer: "à¤…à¤¸à¥à¤µà¥€à¤•à¤°à¤£",
+    copyright: "à¤¸à¤°à¥à¤µà¤¾à¤§à¤¿à¤•à¤¾à¤° à¤¸à¥à¤°à¤•à¥à¤·à¤¿à¤¤à¥¤",
     categories: [
-      "सबै श्रेणी",
-      "उत्पादन",
-      "चलचित्र",
-      "होटल",
-      "रेस्टुरेन्ट",
-      "शिक्षा",
-      "स्वास्थ्य",
-      "सेवाहरू",
-      "वित्त",
+      "à¤¸à¤¬à¥ˆ à¤¶à¥à¤°à¥‡à¤£à¥€",
+      "à¤‰à¤¤à¥à¤ªà¤¾à¤¦à¤¨",
+      "à¤šà¤²à¤šà¤¿à¤¤à¥à¤°",
+      "à¤¹à¥‹à¤Ÿà¤²",
+      "à¤°à¥‡à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¨à¥à¤Ÿ",
+      "à¤¶à¤¿à¤•à¥à¤·à¤¾",
+      "à¤¸à¥à¤µà¤¾à¤¸à¥à¤¥à¥à¤¯",
+      "à¤¸à¥‡à¤µà¤¾à¤¹à¤°à¥‚",
+      "à¤µà¤¿à¤¤à¥à¤¤",
     ],
   },
 };
 
 function StarRating({ rating }: { rating: number }) {
+  const safeRating = Math.max(0, Math.min(5, rating));
+
+  const starColor =
+    safeRating >= 4.5 ? "#00A878" :
+    safeRating >= 3.5 ? "#73B85A" :
+    safeRating >= 2.5 ? "#E8B43A" :
+    safeRating >= 1.5 ? "#E98236" :
+    "#D94B4B";
+
   return (
-    <div className="flex items-center gap-1">
-      <span className="tracking-wide text-amber-400">{"★★★★★"}</span>
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const fill = Math.max(0, Math.min(100, (safeRating - star + 1) * 100));
+
+          return (
+            <span
+              key={star}
+              className="relative flex h-[18px] w-[18px] items-center justify-center overflow-hidden rounded-[2px] bg-gray-200"
+            >
+              <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white">
+                {String.fromCodePoint(0x2605)}
+              </span>
+              <span
+                className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden"
+                style={{ width: `${fill}%`, backgroundColor: starColor }}
+              >
+                <span className="flex h-full w-[18px] shrink-0 items-center justify-center text-[14px] text-white">
+                  {String.fromCodePoint(0x2605)}
+                </span>
+              </span>
+            </span>
+          );
+        })}
+      </div>
       <span className="text-sm font-bold text-gray-800">
-        {rating.toFixed(1)}
+        {safeRating.toFixed(1)}
       </span>
     </div>
   );
 }
-
 export default function Home() {
   const { language } = useLanguage();
   const ne = language === "ne";
@@ -274,7 +322,7 @@ export default function Home() {
         setDatabaseCategories(
           orderedCategories.map((category) => ({
             name: category.name,
-            icon: categoryIcons[category.name] ?? "🏢",
+            icon: getCategoryIcon(category.name),
           }))
         );
 
@@ -449,7 +497,7 @@ export default function Home() {
             {showStickySearch ? (
               <div className="flex w-full max-w-xl items-center gap-2 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
                 <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
-                  <span className="text-lg text-gray-400">⌕</span>
+                  <span className="text-lg text-gray-400">{String.fromCodePoint(0x2715)}</span>
                   <input
                     type="text"
                     value={search}
@@ -563,7 +611,7 @@ export default function Home() {
 
         <div className="relative mx-auto max-w-7xl px-5 py-20 text-center md:py-28">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-bold text-green-800 shadow-sm">
-            🇳🇵 {t.madeForNepal}
+            {String.fromCodePoint(0x1F1F3, 0x1F1F5)} {t.madeForNepal}
           </div>
 
           <h2 className="mx-auto max-w-full whitespace-nowrap text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-3xl md:text-5xl lg:text-6xl">
@@ -577,7 +625,7 @@ export default function Home() {
 
           <div id="hero-search" className="mx-auto mt-10 flex max-w-2xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-xl shadow-green-900/10 sm:flex-row sm:items-center">
             <div className="flex flex-1 items-center gap-3 px-4">
-              <span className="text-xl">🔍</span>
+              <span className="text-xl">{String.fromCodePoint(0x1F50D)}</span>
               <input
                 type="text"
                 value={search}
@@ -616,7 +664,7 @@ export default function Home() {
                   className="mx-1 font-semibold text-green-800 hover:underline"
                 >
                   {ne
-                    ? ({ Hotels: "होटल", Movies: "चलचित्र", Products: "उत्पादन", Restaurants: "रेस्टुरेन्ट" }[item])
+                    ? ({ Hotels: "à¤¹à¥‹à¤Ÿà¤²", Movies: "à¤šà¤²à¤šà¤¿à¤¤à¥à¤°", Products: "à¤‰à¤¤à¥à¤ªà¤¾à¤¦à¤¨", Restaurants: "à¤°à¥‡à¤¸à¥à¤Ÿà¥à¤°à¥‡à¤¨à¥à¤Ÿ" }[item])
                     : item}
                   {index !== 3 ? "," : ""}
                 </button>
@@ -630,10 +678,10 @@ export default function Home() {
       <section className="border-b border-gray-100 bg-white">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-5 py-9 text-center md:grid-cols-4">
           {[
-            ["🇳🇵", t.stats[0]],
-            ["🌟", t.stats[1]],
-            ["👥", t.stats[2]],
-            ["💡", t.stats[3]],
+            [String.fromCodePoint(0x1F1F3, 0x1F1F5), t.stats[0]],
+            [String.fromCodePoint(0x1F31F), t.stats[1]],
+            [String.fromCodePoint(0x1F465), t.stats[2]],
+            [String.fromCodePoint(0x1F4A1), t.stats[3]],
           ].map(([icon, title]) => (
             <div key={title}>
               <div className="text-2xl">{icon}</div>
@@ -710,16 +758,16 @@ export default function Home() {
 
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-gray-600">
-              {ne ? "देखाउने क्रम:" : "Sort by:"}
+              {ne ? "à¤¦à¥‡à¤–à¤¾à¤‰à¤¨à¥‡ à¤•à¥à¤°à¤®:" : "Sort by:"}
             </p>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "newest" | "highest" | "most")}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 outline-none focus:border-green-600 sm:w-64"
             >
-              <option value="newest">{ne ? "नयाँ पहिले" : "Newest"}</option>
-              <option value="highest">{ne ? "उच्च रेटिङ पहिले" : "Highest Rated"}</option>
-              <option value="most">{ne ? "धेरै समीक्षा पहिले" : "Most Reviewed"}</option>
+              <option value="newest">{ne ? "à¤¨à¤¯à¤¾à¤ à¤ªà¤¹à¤¿à¤²à¥‡" : "Newest"}</option>
+              <option value="highest">{ne ? "à¤‰à¤šà¥à¤š à¤°à¥‡à¤Ÿà¤¿à¤™ à¤ªà¤¹à¤¿à¤²à¥‡" : "Highest Rated"}</option>
+              <option value="most">{ne ? "à¤§à¥‡à¤°à¥ˆ à¤¸à¤®à¥€à¤•à¥à¤·à¤¾ à¤ªà¤¹à¤¿à¤²à¥‡" : "Most Reviewed"}</option>
             </select>
           </div>
           {businessLoading ? (
@@ -792,7 +840,7 @@ export default function Home() {
                     <>
                       <div className="flex items-start justify-between">
                         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 text-3xl">
-                          {categoryIcons[item.categoryName] ?? "🏢"}
+                          {getCategoryIcon(item.categoryName)}
                         </div>
                         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800">
                           {categoryLabel(item.categoryName)}
@@ -802,7 +850,7 @@ export default function Home() {
                         {item.name}
                       </h3>
                       <p className="mt-1 text-sm text-gray-400">
-                        📍 {item.location || (ne ? "स्थान उपलब्ध छैन" : t.locationMissing)}
+                        {String.fromCodePoint(0x1F4CD)} {item.location || (ne ? "à¤¸à¥à¤¥à¤¾à¤¨ à¤‰à¤ªà¤²à¤¬à¥à¤§ à¤›à¥ˆà¤¨" : t.locationMissing)}
                       </p>
                     </>
                   )}
@@ -837,7 +885,7 @@ export default function Home() {
                     </div>
 
                     <span className="rounded-full bg-green-50 px-4 py-2 text-xs font-bold text-green-800">
-                      {t.viewProfile} →
+                      {t.viewProfile} {String.fromCodePoint(0x2192)}
                     </span>
                   </div>
                 </Link>
@@ -850,14 +898,14 @@ export default function Home() {
                   onClick={() => setVisibleCount((current) => current + 15)}
                   className="rounded-full bg-green-700 px-8 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-800"
                 >
-                  {ne ? "थप कम्पनीहरू देखाउनुहोस्" : "Load More"}
+                  {ne ? "à¤¥à¤ª à¤•à¤®à¥à¤ªà¤¨à¥€à¤¹à¤°à¥‚ à¤¦à¥‡à¤–à¤¾à¤‰à¤¨à¥à¤¹à¥‹à¤¸à¥" : "Load More"}
                 </button>
               </div>
             )}
             </>
           ) : (
             <div className="rounded-2xl border border-gray-100 bg-white py-16 text-center">
-              <div className="text-5xl">🔎</div>
+              <div className="text-5xl">{String.fromCodePoint(0x1F50D)}</div>
               <h3 className="mt-4 text-xl font-bold">{t.noBusinesses}</h3>
               <p className="mt-2 text-sm text-gray-500">{t.tryAnother}</p>
               <button
@@ -877,7 +925,7 @@ export default function Home() {
       {/* CALL TO ACTION */}
       <section className="bg-green-800 px-5 py-20 text-center text-white">
         <div className="mx-auto max-w-3xl">
-          <div className="text-5xl">💬</div>
+          <div className="text-5xl">{String.fromCodePoint(0x1F4AC)}</div>
           <h2 className="mt-6 text-3xl font-black md:text-4xl">
             {t.callTitle}
           </h2>
@@ -888,7 +936,7 @@ export default function Home() {
             href={userEmail ? "#trending" : "/auth"}
             className="mt-8 inline-block rounded-full bg-white px-8 py-4 font-extrabold text-green-800 shadow-lg transition hover:bg-green-50"
           >
-            {userEmail ? t.exploreTrust : t.joinToday} →
+            {userEmail ? t.exploreTrust : t.joinToday} {String.fromCodePoint(0x2192)}
           </Link>
         </div>
       </section>
@@ -913,7 +961,7 @@ export default function Home() {
               {t.aboutTagline}
             </p>
             <p className="mt-5 text-sm font-extrabold text-green-900">
-              🇳🇵 {t.proudly}
+              {String.fromCodePoint(0x1F1F3, 0x1F1F5)} {t.proudly}
             </p>
           </div>
         </div>
@@ -950,10 +998,13 @@ export default function Home() {
             <Link href="/privacy" className="hover:text-white">
               Privacy Policy
             </Link>
+            <Link href="/contact" className="hover:text-white">
+              Contact Us
+            </Link>
           </div>
 
           <p className="text-xs text-gray-500">
-            © 2026 TrustNepal. {t.copyright}
+            {String.fromCodePoint(0x00A9)} 2026 TrustNepal. {t.copyright}
           </p>
         </div>
       </footer>
