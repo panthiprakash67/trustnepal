@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
 } from "libphonenumber-js";
 import type { CountryCode } from "libphonenumber-js";
 import { supabase } from "../../lib/supabase";
+import { useLanguage } from "../components/language-provider";
 
 type Gender = "Male" | "Female" | "Prefer not to say" | "";
 type PhoneDetails = {
@@ -67,6 +68,8 @@ function getAuthRedirectUrl(): string {
 
 export default function AuthPage() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const ne = language === "ne";
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -382,7 +385,7 @@ const [showPassword, setShowPassword] = useState(false);
     }
 
     if (!termsAccepted) {
-      setError("Please agree to the Terms & Conditions and Privacy Policy to complete registration.");
+      setError(ne ? "दर्ता पूरा गर्न TrustNepal का नियम तथा सर्तहरू, गोपनीयता नीति र समीक्षा निर्देशिकाहरू स्वीकार गर्नुहोस्।" : "Please agree to the Terms & Conditions, Privacy Policy, and Review Guidelines to complete registration.");
       return;
     }
 
@@ -425,7 +428,7 @@ const [showPassword, setShowPassword] = useState(false);
 
     if (mode === "signup") {
       if (!termsAccepted) {
-        setError("Please agree to the Terms & Conditions and Privacy Policy to create an account.");
+        setError(ne ? "खाता बनाउन TrustNepal का नियम तथा सर्तहरू, गोपनीयता नीति र समीक्षा निर्देशिकाहरू स्वीकार गर्नुहोस्।" : "Please agree to the Terms & Conditions, Privacy Policy, and Review Guidelines to create an account.");
         return;
       }
 
@@ -610,16 +613,20 @@ const [showPassword, setShowPassword] = useState(false);
                 className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
               />
               <span>
-                I agree to the{" "}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
-                  Terms &amp; Conditions
-                </a>{" "}
-                and{" "}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
-                  Privacy Policy
-                </a>{" "}
-                of TrustNepal.
-              </span>
+  {ne ? "म TrustNepal का " : "I agree to the "}
+  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "नियम तथा सर्तहरू" : "Terms & Conditions"}
+  </a>
+  {", "}
+  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "गोपनीयता नीति" : "Privacy Policy"}
+  </a>
+  {ne ? " र " : ", and "}
+  <a href="/review-guidelines" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "समीक्षा निर्देशिकाहरू" : "Review Guidelines"}
+  </a>
+  {ne ? " स्वीकार गर्दछु।" : " of TrustNepal."}
+</span>
             </label>
 
             <button
@@ -872,7 +879,7 @@ const [showPassword, setShowPassword] = useState(false);
                 className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-800"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? "🙈" : "👁"}
+                {showPassword ? "ðŸ™ˆ" : "ðŸ‘"}
               </button>
             </div>
             <p className="mt-1 text-xs text-gray-500">
@@ -890,16 +897,20 @@ const [showPassword, setShowPassword] = useState(false);
                 className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-600"
               />
               <span>
-                I agree to the{" "}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
-                  Terms &amp; Conditions
-                </a>{" "}
-                and{" "}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
-                  Privacy Policy
-                </a>{" "}
-                of TrustNepal.
-              </span>
+  {ne ? "म TrustNepal का " : "I agree to the "}
+  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "नियम तथा सर्तहरू" : "Terms & Conditions"}
+  </a>
+  {", "}
+  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "गोपनीयता नीति" : "Privacy Policy"}
+  </a>
+  {ne ? " र " : ", and "}
+  <a href="/review-guidelines" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 hover:underline">
+    {ne ? "समीक्षा निर्देशिकाहरू" : "Review Guidelines"}
+  </a>
+  {ne ? " स्वीकार गर्दछु।" : " of TrustNepal."}
+</span>
             </label>
           )}
 
@@ -937,7 +948,7 @@ const [showPassword, setShowPassword] = useState(false);
             onClick={() => router.push("/")}
             className="text-sm text-gray-500 hover:text-blue-700"
           >
-            ← Back to Homepage
+            â† Back to Homepage
           </button>
         </div>
       </div>
