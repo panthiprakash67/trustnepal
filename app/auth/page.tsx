@@ -129,105 +129,144 @@ const [showPassword, setShowPassword] = useState(false);
   }
 
   async function saveUserProfile(
-    user: User,
-    selectedPhoto: File | null = null,
-    phoneDetails?: PhoneDetails
-  ) {
-    const metadata = user.user_metadata || {};
+  user: User,
+  selectedPhoto: File | null = null,
+  phoneDetails?: PhoneDetails
+) {
+  const metadata = user.user_metadata || {};
 
-    const googleFullName = metadata.full_name || metadata.name || "";
-    const nameParts = String(googleFullName)
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+  const googleIdentity = user.identities?.find(
+    (identity) => identity.provider === "google"
+  );
+  const identityData = googleIdentity?.identity_data || {};
 
-    const savedFirstName =
-      firstName.trim() ||
-      metadata.first_name ||
-      metadata.given_name ||
-      nameParts[0] ||
-      "";
+  const getText = (value: unknown): string =>
+    typeof value === "string" ? value.trim() : "";
 
-    const savedMiddleName = middleName.trim() || metadata.middle_name || "";
+  const googleFullName =
+    getText(metadata.full_name) ||
+    getText(metadata.name) ||
+    getText(identityData.full_name) ||
+    getText(identityData.name) ||
+    [
+      getText(identityData.given_name),
+      getText(identityData.family_name),
+    ].filter(Boolean).join(" ");
 
-    const savedLastName =
-      lastName.trim() ||
-      metadata.last_name ||
-      metadata.family_name ||
-      nameParts.slice(1).join(" ") ||
-      "";
+  const nameParts = googleFullName.split(/\s+/).filter(Boolean);
 
-    const savedGender = gender || metadata.gender || null;
+  const savedFirstName =
+    firstName.trim() ||
+    getText(metadata.first_name) ||
+    getText(metadata.given_name) ||
+    nameParts[0] ||
+    "";
 
-    const fullName =
-      [savedFirstName, savedMiddleName, savedLastName]
-        .filter(Boolean)
-        .join(" ") || String(googleFullName);
+  const savedMiddleName =
+    middleName.trim() || getText(metadata.middle_name);
 
-    let avatarUrl: string | null =
-      metadata.avatar_url || metadata.picture || null;
+  const savedLastName =
+    lastName.trim() ||
+    getText(metadata.last_name) ||
+    getText(metadata.family_name) ||
+    nameParts.slice(1).join(" ") ||
+    "";
 
-    if (selectedPhoto) {
-      const extension =
-        selectedPhoto.name.split(".").pop()?.toLowerCase() || "jpg";
-      const filePath = `${user.id}/profile.${extension}`;
+  const submittedFullName = [
+    savedFirstName,
+    savedMiddleName,
+    savedLastName,
+  ].filter(Boolean).join(" ");
 
-      const { error: uploadError } = await supabase.storage
-        .from("profile-photos")
-        .upload(filePath, selectedPhoto, {
-          upsert: true,
-          contentType: selectedPhoto.type,
-        });
-
-      if (uploadError) {
-        throw new Error("Profile photo upload failed: " + uploadError.message);
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("profile-photos")
-        .getPublicUrl(filePath);
-
-      avatarUrl = publicUrlData.publicUrl;
-    }
-
-    const savedPhoneCountryCode =
-      phoneDetails?.countryCode || metadata.phone_country_code || null;
-    const savedPhoneNumber =
-      phoneDetails?.phoneNumber || metadata.phone_number || null;
-
-    const profileData: {
-      user_id: string;
-      first_name: string;
-      middle_name: string;
-      last_name: string;
-      gender: string | null;
-      full_name: string;
-      avatar_url?: string;
-      phone_country_code: string | null;
-      phone_number: string | null;
-    } = {
-      user_id: user.id,
-      first_name: savedFirstName,
-      middle_name: savedMiddleName,
-      last_name: savedLastName,
-      gender: savedGender,
-      full_name: fullName,
-      phone_country_code: savedPhoneCountryCode,
-      phone_number: savedPhoneNumber,
-    };
-
-    if (avatarUrl) {
-      profileData.avatar_url = avatarUrl;
-    }
-
-    const { error: profileError } = await supabase
+  const { data: existingProfile, error: existingProfileError } =
+    await supabase
       .from("profiles")
-      .upsert(profileData, { onConflict: "user_id" });
+      .select("first_name, middle_name, last_name, full_name, gender, avatar_url, phone_country_code, phone_number")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profileError) {
-      throw new Error("Profile save failed: " + profileError.message);
-    }
+  if (existingProfileError) {
+    throw new Error("Profile lookup failed: " + existingProfileError.message);
   }
+
+  const fullName =
+    submittedFullName ||
+    getText(existingProfile?.full_name) ||
+    googleFullName;
+
+  const finalFirstName =
+    savedFirstName || existingProfile?.first_name || "";
+
+  const finalMiddleName =
+    savedMiddleName || existingProfile?.middle_name || "";
+
+  const finalLastName =
+    savedLastName || existingProfile?.last_name || "";
+
+  const savedGender =
+    getText(metadata.gender) || gender || existingProfile?.gender || null;
+
+  let avatarUrl: string | null =
+    getText(metadata.avatar_url) ||
+    getText(metadata.picture) ||
+    existingProfile?.avatar_url ||
+    null;
+
+  if (selectedPhoto) {
+    const extension =
+      selectedPhoto.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `${user.id}/profile.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("profile-photos")
+      .upload(filePath, selectedPhoto, {
+        upsert: true,
+        contentType: selectedPhoto.type,
+      });
+
+    if (uploadError) {
+      throw new Error("Profile photo upload failed: " + uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("profile-photos")
+      .getPublicUrl(filePath);
+
+    avatarUrl = publicUrlData.publicUrl;
+  }
+
+  const savedPhoneCountryCode =
+    phoneDetails?.countryCode ||
+    getText(metadata.phone_country_code) ||
+    existingProfile?.phone_country_code ||
+    null;
+
+  const savedPhoneNumber =
+    phoneDetails?.phoneNumber ||
+    getText(metadata.phone_number) ||
+    existingProfile?.phone_number ||
+    null;
+
+  const profileData = {
+    user_id: user.id,
+    first_name: finalFirstName,
+    middle_name: finalMiddleName,
+    last_name: finalLastName,
+    gender: savedGender,
+    full_name: fullName,
+    avatar_url: avatarUrl,
+    phone_country_code: savedPhoneCountryCode,
+    phone_number: savedPhoneNumber,
+  };
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(profileData, { onConflict: "user_id" });
+
+  if (profileError) {
+    throw new Error("Profile save failed: " + profileError.message);
+  }
+}
 
   async function redirectUser(
     user: User,

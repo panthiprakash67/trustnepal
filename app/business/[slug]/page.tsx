@@ -10,6 +10,7 @@ type Business = {
   id: number;
   name: string;
   slug: string;
+  is_multi_branch: boolean;
   category_id: number;
   description: string | null;
   location: string | null;
@@ -31,7 +32,8 @@ type Business = {
   release_year: number | null;
   duration: string | null;
   production_company: string | null;
-  image_url: string | null;  categoryName: string;
+  image_url: string | null;
+  categoryName: string;
 };
 
 function getSafeSocialUrl(
@@ -67,6 +69,11 @@ function getSafeSocialUrl(
     return null;
   }
 }
+type BusinessLocation = {
+  id: number;
+  branch_name: string | null;
+};
+
 type Review = {
   id: number;
   user_id: string;
@@ -74,6 +81,8 @@ type Review = {
   title: string | null;
   review_text: string | null;
   created_at: string;
+  branch_id: number | null;
+  business_branches: { branch_name: string | null } | null;
   full_name: string | null;
   avatar_url: string | null;
 };
@@ -99,6 +108,7 @@ type ReviewDraft = {
   rating: number;
   reviewTitle: string;
   reviewText: string;
+  selectedBranchId?: number | null;
 };
 
 type ReplyListProps = {
@@ -264,6 +274,8 @@ function BusinessProfileContent() {
   const slug = params.slug;
 
   const [business, setBusiness] = useState<Business | null>(null);
+  const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [totalReviews, setTotalReviews] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
@@ -312,6 +324,7 @@ function BusinessProfileContent() {
         setRating(draft.rating);
         setReviewTitle(draft.reviewTitle);
         setReviewText(draft.reviewText);
+        setSelectedBranchId(draft.selectedBranchId ?? null);
         setSubmitMessage(
           "Your saved review has been restored. Please submit it below."
         );
@@ -334,6 +347,7 @@ function BusinessProfileContent() {
       rating,
       reviewTitle: reviewTitle.trim(),
       reviewText: reviewText.trim(),
+      selectedBranchId,
     };
 
     try {
@@ -392,7 +406,7 @@ function BusinessProfileContent() {
 
     const { data, error } = await supabase
       .from("reviews")
-      .select("id, user_id, rating, title, review_text, created_at")
+      .select("id, user_id, rating, title, review_text, created_at, branch_id")
       .eq("business_id", businessId)
       .eq("status", "approved")
       .order("created_at", { ascending: false })
@@ -407,6 +421,21 @@ function BusinessProfileContent() {
       setReviews([]);
       await loadReplies([]);
       return;
+    }
+
+    const branchIds = [...new Set(reviewRows.map((review) => review.branch_id).filter((id): id is number => id !== null))];
+    const branchMap = new Map<number, { branch_name: string | null }>();
+
+    if (branchIds.length > 0) {
+      const { data: branchData, error: branchError } = await supabase
+        .from("business_branches")
+        .select("id, branch_name")
+        .in("id", branchIds);
+
+      if (branchError) throw branchError;
+      (branchData ?? []).forEach((branch) => {
+        branchMap.set(branch.id, { branch_name: branch.branch_name });
+      });
     }
 
     const reviewUserIds = [
@@ -434,6 +463,7 @@ function BusinessProfileContent() {
       const profile = profileMap.get(review.user_id);
       return {
         ...review,
+        business_branches: review.branch_id ? branchMap.get(review.branch_id) ?? null : null,
         full_name: profile?.full_name ?? null,
         avatar_url: profile?.avatar_url ?? null,
       };
@@ -519,7 +549,7 @@ function BusinessProfileContent() {
 
       const { data, error } = await supabase
         .from("reviews")
-        .select("id, user_id, rating, title, review_text, created_at")
+        .select("id, user_id, rating, title, review_text, created_at, branch_id")
         .eq("business_id", business.id)
         .eq("status", "approved")
         .order("created_at", { ascending: false })
@@ -530,6 +560,21 @@ function BusinessProfileContent() {
 
       const reviewRows = data ?? [];
       if (reviewRows.length === 0) return;
+
+      const branchIds = [...new Set(reviewRows.map((review) => review.branch_id).filter((id): id is number => id !== null))];
+      const branchMap = new Map<number, { branch_name: string | null }>();
+
+      if (branchIds.length > 0) {
+        const { data: branchData, error: branchError } = await supabase
+          .from("business_branches")
+          .select("id, branch_name")
+          .in("id", branchIds);
+
+        if (branchError) throw branchError;
+        (branchData ?? []).forEach((branch) => {
+          branchMap.set(branch.id, { branch_name: branch.branch_name });
+        });
+      }
 
       const reviewUserIds = [
         ...new Set(reviewRows.map((review) => review.user_id)),
@@ -556,6 +601,7 @@ function BusinessProfileContent() {
         const profile = profileMap.get(review.user_id);
         return {
           ...review,
+          business_branches: review.branch_id ? branchMap.get(review.branch_id) ?? null : null,
           full_name: profile?.full_name ?? null,
           avatar_url: profile?.avatar_url ?? null,
         };
@@ -584,7 +630,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url"
+              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -607,6 +653,16 @@ function BusinessProfileContent() {
           ...businessData,
           categoryName: categoryData?.name ?? "Other",
         });
+
+        const { data: locationData, error: locationError } = await (supabase as any)
+          .from("business_branches")
+          .select("id, branch_name")
+          .eq("business_id", businessData.id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: true });
+
+        if (locationError) throw locationError;
+        setBusinessLocations(locationData ?? []);
 
         await loadReviews(businessData.id);
       } catch (err) {
@@ -663,6 +719,7 @@ function BusinessProfileContent() {
           rating,
           title: reviewTitle.trim(),
           review_text: reviewText.trim(),
+          branch_id: business.is_multi_branch ? selectedBranchId : null,
         });
 
       if (insertError) throw insertError;
@@ -674,16 +731,22 @@ function BusinessProfileContent() {
       setRating(5);
       setReviewTitle("");
       setReviewText("");
+      setSelectedBranchId(null);
 
       setSubmitMessage(
         "Your review has been submitted and is awaiting moderation. It will appear publicly after approval."
       );
     } catch (err) {
-      setSubmitError(
+      console.error("Review submission failed:", err);
+
+      const errorMessage =
         err instanceof Error
           ? err.message
-          : "Unable to submit your review. Please try again."
-      );
+          : err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to submit your review. Please try again.";
+
+      setSubmitError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -1062,6 +1125,34 @@ if (loading) {
               onSubmit={handleReviewSubmit}
               className="mt-6 space-y-5"
             >
+              {business.is_multi_branch && businessLocations.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="reviewLocation"
+                    className="block text-sm font-semibold text-gray-700"
+                  >
+                    Reviewing Experience At
+                  </label>
+                  <select
+                    id="reviewLocation"
+                    value={selectedBranchId === null ? "" : String(selectedBranchId)}
+                    onChange={(e) =>
+                      setSelectedBranchId(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="">Overall Business</option>
+                    {businessLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.branch_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700">
                   Your Rating
@@ -1235,10 +1326,35 @@ if (loading) {
                         </div>
                       </div>
 
-                      <span className="rounded-lg bg-yellow-50 px-3 py-2 font-bold text-yellow-700">
-                        {"★".repeat(review.rating)}
-                        {"☆".repeat(5 - review.rating)}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+  <div className="flex items-center gap-0.5">
+    {[1, 2, 3, 4, 5].map((star) => {
+      const fill = Math.max(0, Math.min(100, (review.rating - star + 1) * 100));
+      const starColor =
+        review.rating >= 4.5 ? "#00A878" :
+        review.rating >= 3.5 ? "#73B85A" :
+        review.rating >= 2.5 ? "#E8B43A" :
+        review.rating >= 1.5 ? "#E98236" :
+        "#D94B4B";
+
+      return (
+        <span key={star} className="relative flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-[2px] bg-gray-200">
+          <span className="absolute inset-0 flex items-center justify-center text-base text-white">
+            {String.fromCodePoint(0x2605)}
+          </span>
+          <span className="absolute inset-y-0 left-0 flex items-center justify-center overflow-hidden" style={{ width: `${fill}%`, backgroundColor: starColor }}>
+            <span className="flex h-full w-[22px] shrink-0 items-center justify-center text-base text-white">
+              {String.fromCodePoint(0x2605)}
+            </span>
+          </span>
+        </span>
+      );
+    })}
+  </div>
+  <span className="text-lg font-bold text-gray-900">
+    {Number.isInteger(review.rating) ? review.rating : review.rating.toFixed(1)}
+  </span>
+</div>
                     </div>
 
                     {review.review_text && (
@@ -1247,7 +1363,12 @@ if (loading) {
                       </p>
                     )}
 
-                    <p className="mt-4 text-xs text-gray-400">
+                                        <p className="mt-3 text-xs font-medium text-gray-500">
+                      {review.branch_id
+                        ? `Review for ${review.business_branches?.branch_name ?? "Selected Location"}`
+                        : "Overall Business Review"}
+                    </p>
+<p className="mt-4 text-xs text-gray-400">
                       {new Date(review.created_at).toLocaleDateString()}
                     </p>
 

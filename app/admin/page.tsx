@@ -40,6 +40,21 @@ type Business = {
   duration: string | null;
   production_company: string | null;
   image_url: string | null;
+  is_multi_branch: boolean;
+};
+
+type BusinessLocation = {
+  id: number;
+  business_id: number;
+  branch_name: string | null;
+  province: string | null;
+  district: string | null;
+  municipality: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  is_active: boolean;
+  created_at: string;
 };
 
 type UserRole = {
@@ -58,6 +73,8 @@ type Review = {
   status: string;
   created_at: string;
   updated_at: string;
+  branch_id: number | null;
+  business_branches: { branch_name: string | null } | null;
   businesses: { name: string } | null;
 };
 
@@ -83,6 +100,7 @@ export default function AdminPage() {
   const [categoryDescription, setCategoryDescription] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [totalListedBranches, setTotalListedBranches] = useState(0);
   const [qrCompany, setQrCompany] = useState<Business | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrLoading, setQrLoading] = useState(false);
@@ -113,6 +131,18 @@ export default function AdminPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
   const [companyPhone, setCompanyPhone] = useState("");
+  const [isMultiBranch, setIsMultiBranch] = useState(false);
+
+  const [locations, setLocations] = useState<BusinessLocation[]>([]);
+  const [locationName, setLocationName] = useState("");
+  const [locationProvince, setLocationProvince] = useState("");
+  const [locationDistrict, setLocationDistrict] = useState("");
+  const [locationMunicipality, setLocationMunicipality] = useState("");
+  const [locationAddress, setLocationAddress] = useState("");
+  const [locationPhone, setLocationPhone] = useState("");
+  const [locationEmail, setLocationEmail] = useState("");
+  const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
+  const [locationSaving, setLocationSaving] = useState(false);
 
   const [author, setAuthor] = useState("");
   const [publisher, setPublisher] = useState("");
@@ -188,6 +218,7 @@ export default function AdminPage() {
       if (["super_admin", "admin"].includes(roleData.role)) {
         await loadCategories();
         await loadBusinesses();
+        await loadBranchCount();
       }
 
       if (roleData.role === "super_admin") {
@@ -299,12 +330,23 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url")
+      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
     setBusinesses((data ?? []) as Business[]);
+  }
+
+  async function loadBranchCount() {
+    const { count, error } = await supabase
+      .from("business_branches")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true);
+
+    if (error) throw error;
+
+    setTotalListedBranches(count ?? 0);
   }
 
   async function loadRoles() {
@@ -334,7 +376,9 @@ export default function AdminPage() {
           status,
           created_at,
           updated_at,
-          businesses(name)
+          branch_id,
+          businesses(name),
+          business_branches(branch_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -490,6 +534,32 @@ export default function AdminPage() {
     setCatalogImagePreview(URL.createObjectURL(file));
   }
 
+  function resetLocationForm() {
+    setLocationName("");
+    setLocationProvince("");
+    setLocationDistrict("");
+    setLocationMunicipality("");
+    setLocationAddress("");
+    setLocationPhone("");
+    setLocationEmail("");
+    setEditingLocationId(null);
+  }
+
+  async function loadBusinessLocations(businessId: number) {
+    const { data, error } = await supabase
+      .from("business_branches")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setLocations((data ?? []) as BusinessLocation[]);
+  }
+
   function resetCompanyForm() {
     setCompanyName("");
     setCategoryId("");
@@ -502,6 +572,9 @@ export default function AdminPage() {
     setYoutubeUrl("");
     setCompanyEmail("");
     setCompanyPhone("");
+    setIsMultiBranch(false);
+    setLocations([]);
+    resetLocationForm();
 
     setAuthor("");
     setPublisher("");
@@ -533,6 +606,13 @@ export default function AdminPage() {
     setYoutubeUrl(company.youtube_url ?? "");
     setCompanyEmail(company.email ?? "");
     setCompanyPhone(company.phone ?? "");
+    setIsMultiBranch(company.is_multi_branch ?? false);
+    resetLocationForm();
+    if (company.is_multi_branch) {
+      void loadBusinessLocations(company.id);
+    } else {
+      setLocations([]);
+    }
 
     setAuthor(company.author ?? "");
     setPublisher(company.publisher ?? "");
@@ -805,6 +885,7 @@ export default function AdminPage() {
         slug: createSlug(companyName),
         category_id: Number(categoryId),
         description: description.trim() || null,
+        is_multi_branch: isCatalogCategory ? false : isMultiBranch,
 
         location: isCatalogCategory ? null : location.trim() || null,
         website: isCatalogCategory ? null : website.trim() || null,
@@ -834,6 +915,8 @@ export default function AdminPage() {
         image_url: isCatalogCategory ? imageUrl : null,
       };
 
+      let savedBusinessId = editingId;
+
       if (editingId !== null) {
         const { error } = await supabase
           .from("businesses")
@@ -848,20 +931,32 @@ export default function AdminPage() {
           "Company updated successfully!"
         );
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("businesses")
-          .insert(companyData);
+          .insert(companyData)
+          .select("id")
+          .single();
 
         if (error) throw error;
+
+        savedBusinessId = data.id;
+        setEditingId(data.id);
 
         setMessage(
           isBookCategory ? "New book added successfully!" :
           isMovieCategory ? "New movie added successfully!" :
-          "New company added successfully!"
+          "New company added successfully! You can now add locations."
         );
       }
 
-      resetCompanyForm();
+      if (isCatalogCategory) {
+        resetCompanyForm();
+      } else if (isMultiBranch && savedBusinessId !== null) {
+        await loadBusinessLocations(savedBusinessId);
+      } else {
+        setLocations([]);
+      }
+
       await loadBusinesses();
     } catch (err) {
       setError(
@@ -870,6 +965,105 @@ export default function AdminPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveBusinessLocation() {
+
+    if (editingId === null || !isMultiBranch) {
+      setError("Please save a multiple-location company first.");
+      return;
+    }
+
+    if (!locationName.trim()) {
+      setError("Location Name is required.");
+      return;
+    }
+
+    setLocationSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const locationData = {
+        business_id: editingId,
+        branch_name: locationName.trim(),
+        province: locationProvince.trim() || null,
+        district: locationDistrict.trim() || null,
+        municipality: locationMunicipality.trim() || null,
+        address: locationAddress.trim() || null,
+        phone: locationPhone.trim() || null,
+        email: locationEmail.trim() || null,
+      };
+
+      if (editingLocationId !== null) {
+        const { error } = await supabase
+          .from("business_branches")
+          .update(locationData)
+          .eq("id", editingLocationId)
+          .eq("business_id", editingId);
+
+        if (error) throw error;
+
+        setMessage("Location updated successfully!");
+      } else {
+        const { error } = await supabase
+          .from("business_branches")
+          .insert({
+            ...locationData,
+            is_active: true,
+          });
+
+        if (error) throw error;
+
+        setMessage("Location added successfully!");
+      }
+
+      resetLocationForm();
+      await loadBusinessLocations(editingId);
+      await loadBranchCount();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save location."
+      );
+    } finally {
+      setLocationSaving(false);
+    }
+  }
+
+  function editBusinessLocation(item: BusinessLocation) {
+    setLocationName(item.branch_name ?? "");
+    setLocationProvince(item.province ?? "");
+    setLocationDistrict(item.district ?? "");
+    setLocationMunicipality(item.municipality ?? "");
+    setLocationAddress(item.address ?? "");
+    setLocationPhone(item.phone ?? "");
+    setLocationEmail(item.email ?? "");
+    setEditingLocationId(item.id);
+  }
+
+  async function toggleBusinessLocation(item: BusinessLocation) {
+    setError("");
+    setMessage("");
+
+    const { error } = await supabase
+      .from("business_branches")
+      .update({ is_active: !item.is_active })
+      .eq("id", item.id)
+      .eq("business_id", item.business_id);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setMessage(
+      item.is_active
+        ? "Location deactivated successfully!"
+        : "Location activated successfully!"
+    );
+
+    await loadBusinessLocations(item.business_id);
+    await loadBranchCount();
   }
 
   async function assignRole(e: React.FormEvent<HTMLFormElement>) {
@@ -1029,7 +1223,7 @@ export default function AdminPage() {
         {/* Company Dashboard */}
         {["super_admin", "admin"].includes(userRole) && (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-white p-6 shadow-sm">
                 <p className="text-sm text-gray-500">Total Companies</p>
                 <p className="mt-2 text-3xl font-extrabold text-gray-900">
@@ -1043,6 +1237,12 @@ export default function AdminPage() {
                 </p>
                 <p className="mt-2 text-3xl font-extrabold text-gray-900">
                   {categories.length}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-6 shadow-sm">
+                <p className="text-sm text-gray-500">Total Listed Branches</p>
+                <p className="mt-2 text-3xl font-extrabold text-gray-900">
+                  {totalListedBranches}
                 </p>
               </div>
             </div>
@@ -1517,6 +1717,225 @@ export default function AdminPage() {
     />
   </div>
 
+  {!isCatalogCategory && (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-gray-700">
+        Business Type *
+      </label>
+      <select
+        value={isMultiBranch ? "multi" : "single"}
+        onChange={(e) => setIsMultiBranch(e.target.value === "multi")}
+        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+      >
+        <option value="single">Single Location</option>
+        <option value="multi">Multiple Locations</option>
+      </select>
+      <p className="mt-1 text-xs text-gray-500">
+        Enter location details here. Save the company first, then add the location.
+      </p>
+    </div>
+  )}
+
+  {!isCatalogCategory && isMultiBranch && (
+    <div className="rounded-xl border border-green-200 bg-green-50 p-5 sm:col-span-2">
+      <h3 className="text-lg font-bold text-gray-900">
+        Location Management
+      </h3>
+      <p className="mt-1 text-sm text-gray-600">
+        Add and manage individual locations for this company.
+      </p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Location Name *
+          </label>
+          <input
+            value={locationName}
+            onChange={(e) => setLocationName(e.target.value)}
+            placeholder="e.g. Kathmandu Main Office"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Province (Optional)
+          </label>
+          <input
+            value={locationProvince}
+            onChange={(e) => setLocationProvince(e.target.value)}
+            placeholder="Enter province"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            District (Optional)
+          </label>
+          <input
+            value={locationDistrict}
+            onChange={(e) => setLocationDistrict(e.target.value)}
+            placeholder="Enter district"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Municipality (Optional)
+          </label>
+          <input
+            value={locationMunicipality}
+            onChange={(e) => setLocationMunicipality(e.target.value)}
+            placeholder="Enter municipality"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Full Address (Optional)
+          </label>
+          <input
+            value={locationAddress}
+            onChange={(e) => setLocationAddress(e.target.value)}
+            placeholder="Enter complete location address"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Contact Number (Optional)
+          </label>
+          <input
+            type="tel"
+            value={locationPhone}
+            onChange={(e) => setLocationPhone(e.target.value)}
+            placeholder="Enter contact number"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Email (Optional)
+          </label>
+          <input
+            type="email"
+            value={locationEmail}
+            onChange={(e) => setLocationEmail(e.target.value)}
+            placeholder="Enter location email"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={locationSaving || editingId === null}
+          onClick={() => void saveBusinessLocation()}
+          className="rounded-lg bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+        >
+          {locationSaving
+            ? "Saving Location..."
+            : editingLocationId !== null
+            ? "Update Location"
+            : editingId === null ? "Save Company First" : "Add Location"}
+        </button>
+
+        {editingLocationId !== null && (
+          <button
+            type="button"
+            onClick={resetLocationForm}
+            className="rounded-lg border border-gray-300 bg-white px-5 py-3 font-semibold text-gray-700"
+          >
+            Cancel Location Edit
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-green-200 pt-5">
+        <h4 className="font-bold text-gray-900">
+          Saved Locations ({locations.length})
+        </h4>
+
+        {locations.length === 0 ? (
+          <p className="mt-3 rounded-lg bg-white p-4 text-sm text-gray-500">
+            No locations added yet.
+          </p>
+        ) : (
+          <div className="mt-3 max-h-80 space-y-3 overflow-y-auto pr-2">
+            {locations.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-lg border border-gray-200 bg-white p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900">
+                      {item.branch_name || item.municipality || "Business Location"}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {[item.municipality, item.district, item.province]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {item.address}
+                    </p>
+                    {item.phone && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        Phone: {item.phone}
+                      </p>
+                    )}
+                    {item.email && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        Email: {item.email}
+                      </p>
+                    )}
+                    <span
+                      className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                        item.is_active
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {item.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editBusinessLocation(item)}
+                      className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleBusinessLocation(item)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                        item.is_active
+                          ? "border-red-200 text-red-700 hover:bg-red-50"
+                          : "border-green-200 text-green-700 hover:bg-green-50"
+                      }`}
+                    >
+                      {item.is_active ? "Deactivate" : "Activate"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
   <div>
     <label className="mb-2 block text-sm font-semibold text-gray-700">
       Description
