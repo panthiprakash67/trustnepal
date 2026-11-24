@@ -143,6 +143,16 @@ export default function AdminPage() {
   const [locationEmail, setLocationEmail] = useState("");
   const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
   const [locationSaving, setLocationSaving] = useState(false);
+  // Business Account Invitation
+  const [inviteBusinessId, setInviteBusinessId] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<
+    "owner" | "branch_manager" | "review_responder"
+  >("owner");
+  const [invitationBranches, setInvitationBranches] = useState<BusinessLocation[]>([]);
+  const [selectedInvitationBranches, setSelectedInvitationBranches] = useState<number[]>([]);
+  const [invitationLoading, setInvitationLoading] = useState(false);
+  const [invitationUrl, setInvitationUrl] = useState("");
 
   const [author, setAuthor] = useState("");
   const [publisher, setPublisher] = useState("");
@@ -1098,6 +1108,97 @@ export default function AdminPage() {
     }
   }
 
+  async function loadInvitationBranches(businessId: number) {
+    setInvitationBranches([]);
+    setSelectedInvitationBranches([]);
+
+    if (!businessId) return;
+
+    const { data, error } = await supabase
+      .from("business_branches")
+      .select("*")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setInvitationBranches((data ?? []) as BusinessLocation[]);
+  }
+
+  async function createBusinessInvitation(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    setInvitationLoading(true);
+    setMessage("");
+    setError("");
+    setInvitationUrl("");
+
+    try {
+      if (!inviteBusinessId || !inviteEmail.trim()) {
+        throw new Error("Please select a business and enter an email.");
+      }
+
+      if (
+        inviteRole !== "owner" &&
+        selectedInvitationBranches.length === 0
+      ) {
+        throw new Error("Please assign at least one active branch.");
+      }
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) throw sessionError;
+
+      if (!session?.access_token) {
+        throw new Error("Please login again.");
+      }
+
+      const result = await fetch("/api/admin/business-invitations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          business_id: Number(inviteBusinessId),
+          email: inviteEmail.trim().toLowerCase(),
+          role: inviteRole,
+          branch_ids:
+            inviteRole === "owner"
+              ? []
+              : selectedInvitationBranches,
+        }),
+      });
+
+      const data = await result.json();
+
+      if (!result.ok) {
+        throw new Error(data.error || "Unable to create invitation.");
+      }
+
+      setInvitationUrl(data.invitation_url);
+      setMessage("Business invitation created successfully!");
+      setInviteEmail("");
+      setSelectedInvitationBranches([]);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to create business invitation."
+      );
+    } finally {
+      setInvitationLoading(false);
+    }
+  }
   async function removeRole(userId: string) {
     if (
       !window.confirm(
@@ -1386,6 +1487,16 @@ export default function AdminPage() {
                 Admin Management
               </button>
 
+              <button
+                onClick={() => setActiveTab("businessAccounts")}
+                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
+                  activeTab === "businessAccounts"
+                    ? "bg-green-700 text-white"
+                    : "bg-white text-gray-700"
+                }`}
+              >
+                Business Account Management
+              </button>
               <button
                 onClick={() => setActiveTab("categories")}
                 className={`rounded-lg px-5 py-3 text-sm font-semibold ${
@@ -2508,6 +2619,162 @@ export default function AdminPage() {
           </section>
         )}
 
+        {/* Business Account Management */}
+        {activeTab === "businessAccounts" && userRole === "super_admin" && (
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-gray-900">
+              Create Business Account Invitation
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-600">
+              Create a secure invitation link for a business representative.
+              The invitation expires after 7 days.
+            </p>
+
+            <form onSubmit={createBusinessInvitation} className="mt-6 max-w-2xl space-y-5">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-black">
+                  Select Business
+                </label>
+                <select
+                  value={inviteBusinessId}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setInviteBusinessId(value);
+                    setInvitationUrl("");
+                    void loadInvitationBranches(Number(value));
+                  }}
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black"
+                >
+                  <option value="">Choose a business</option>
+                  {businesses.map((business) => (
+                    <option key={business.id} value={business.id}>
+                      {business.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-black">
+                  Official Email Address
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="company@example.com"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-black">
+                  Business Role
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(event) => {
+                    const value = event.target.value as
+                      | "owner"
+                      | "branch_manager"
+                      | "review_responder";
+                    setInviteRole(value);
+                    if (value === "owner") {
+                      setSelectedInvitationBranches([]);
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-black"
+                >
+                  <option value="owner">Business Owner</option>
+                  <option value="branch_manager">Branch Manager</option>
+                  <option value="review_responder">Review Responder</option>
+                </select>
+              </div>
+
+              {inviteRole !== "owner" && (
+                <div>
+                  <label className="mb-3 block text-sm font-semibold text-black">
+                    Assign Active Branches
+                  </label>
+
+                  {!inviteBusinessId ? (
+                    <p className="text-sm text-gray-500">
+                      Select a business first.
+                    </p>
+                  ) : invitationBranches.length === 0 ? (
+                    <p className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">
+                      No active branches found for this business.
+                    </p>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                      {invitationBranches.map((branch) => (
+                        <label
+                          key={branch.id}
+                          className="flex cursor-pointer items-center gap-3 text-sm font-medium text-black"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedInvitationBranches.includes(branch.id)}
+                            onChange={(event) => {
+                              setSelectedInvitationBranches((current) =>
+                                event.target.checked
+                                  ? [...current, branch.id]
+                                  : current.filter((id) => id !== branch.id)
+                              );
+                            }}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span>
+                            {branch.branch_name || branch.address || `Branch #${branch.id}`}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={invitationLoading}
+                className="rounded-lg bg-green-700 px-6 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+              >
+                {invitationLoading ? "Creating Invitation..." : "Create Invitation"}
+              </button>
+            </form>
+
+            {invitationUrl && (
+              <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="mb-2 text-sm font-semibold text-green-800">
+                  Invitation Link Created
+                </p>
+                <input
+                  type="text"
+                  readOnly
+                  value={invitationUrl}
+                  className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm text-black"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(invitationUrl)
+                      .then(() => setMessage("Invitation link copied successfully."))
+                      .catch(() => setError("Unable to copy link. Please copy it manually."));
+                  }}
+                  className="mt-3 rounded-lg bg-green-700 px-5 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                >
+                  Copy Invitation Link
+                </button>
+                <p className="mt-2 text-xs text-gray-600">
+                  Email sending is not enabled yet. Share this link securely with the invited person.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
         {/* Category Management */}
         {activeTab === "categories" && userRole === "super_admin" && (
           <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
