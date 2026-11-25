@@ -1,12 +1,42 @@
 
 "use client";
 
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { supabase } from "../../lib/supabase";
 
+function extractGoogleMapsCoordinates(url: string): { latitude: number; longitude: number } | null {
+  const patterns = [
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /[?&](?:q|query|destination)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+
+    if (match) {
+      const latitude = Number(match[1]);
+      const longitude = Number(match[2]);
+
+      if (
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180
+      ) {
+        return { latitude, longitude };
+      }
+    }
+  }
+
+  return null;
+}
 type Category = {
   id: number;
   name: string;
@@ -21,6 +51,9 @@ type Business = {
   category_id: number;
   description: string | null;
   location: string | null;
+  google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   website: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -51,6 +84,9 @@ type BusinessLocation = {
   district: string | null;
   municipality: string | null;
   address: string | null;
+  google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   phone: string | null;
   email: string | null;
   is_active: boolean;
@@ -168,6 +204,9 @@ export default function AdminPage() {
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [companyGoogleMapsUrl, setCompanyGoogleMapsUrl] = useState("");
+  const [companyLatitude, setCompanyLatitude] = useState<number | null>(null);
+  const [companyLongitude, setCompanyLongitude] = useState<number | null>(null);
   const [website, setWebsite] = useState("");
   const [facebookUrl, setFacebookUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
@@ -183,6 +222,9 @@ export default function AdminPage() {
   const [locationDistrict, setLocationDistrict] = useState("");
   const [locationMunicipality, setLocationMunicipality] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
+  const [branchGoogleMapsUrl, setBranchGoogleMapsUrl] = useState("");
+  const [branchLatitude, setBranchLatitude] = useState<number | null>(null);
+  const [branchLongitude, setBranchLongitude] = useState<number | null>(null);
   const [locationPhone, setLocationPhone] = useState("");
   const [locationEmail, setLocationEmail] = useState("");
   const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
@@ -386,7 +428,7 @@ export default function AdminPage() {
   async function loadBusinesses() {
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch")
+      .select("id, name, slug, category_id, description, location, google_maps_url, latitude, longitude, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -765,6 +807,9 @@ export default function AdminPage() {
     setLocationDistrict("");
     setLocationMunicipality("");
     setLocationAddress("");
+    setBranchGoogleMapsUrl("");
+    setBranchLatitude(null);
+    setBranchLongitude(null);
     setLocationPhone("");
     setLocationEmail("");
     setEditingLocationId(null);
@@ -790,6 +835,9 @@ export default function AdminPage() {
     setCategoryId("");
     setDescription("");
     setLocation("");
+    setCompanyGoogleMapsUrl("");
+    setCompanyLatitude(null);
+    setCompanyLongitude(null);
     setWebsite("");
     setFacebookUrl("");
     setInstagramUrl("");
@@ -824,6 +872,9 @@ export default function AdminPage() {
     setCategoryId(String(company.category_id));
     setDescription(company.description ?? "");
     setLocation(company.location ?? "");
+    setCompanyGoogleMapsUrl(company.google_maps_url ?? "");
+    setCompanyLatitude(company.latitude ?? null);
+    setCompanyLongitude(company.longitude ?? null);
     setWebsite(company.website ?? "");
     setFacebookUrl(company.facebook_url ?? "");
     setInstagramUrl(company.instagram_url ?? "");
@@ -1013,7 +1064,7 @@ export default function AdminPage() {
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 24px Arial";
-      ctx.fillText("TRUSTNEPAL  â€¢  SHARE YOUR EXPERIENCE", 600, height - 83);
+      ctx.fillText("TRUSTNEPAL  Ã¢â‚¬Â¢  SHARE YOUR EXPERIENCE", 600, height - 83);
 
       const link = document.createElement("a");
       link.download = `${qrCompany.slug}-trustnepal-qr-poster.png`;
@@ -1114,6 +1165,9 @@ export default function AdminPage() {
         is_multi_branch: isCatalogCategory ? false : isMultiBranch,
 
         location: isCatalogCategory ? null : location.trim() || null,
+        google_maps_url: isCatalogCategory ? null : companyGoogleMapsUrl.trim() || null,
+        latitude: isCatalogCategory ? null : companyLatitude,
+        longitude: isCatalogCategory ? null : companyLongitude,
         website: isCatalogCategory ? null : website.trim() || null,
         facebook_url: isCatalogCategory ? null : validateSocialUrl(facebookUrl, "Facebook"),
         instagram_url: isCatalogCategory ? null : validateSocialUrl(instagramUrl, "Instagram"),
@@ -1217,6 +1271,9 @@ export default function AdminPage() {
         district: locationDistrict.trim() || null,
         municipality: locationMunicipality.trim() || null,
         address: locationAddress.trim() || null,
+        google_maps_url: branchGoogleMapsUrl.trim() || null,
+        latitude: branchLatitude,
+        longitude: branchLongitude,
         phone: locationPhone.trim() || null,
         email: locationEmail.trim() || null,
       };
@@ -1262,6 +1319,9 @@ export default function AdminPage() {
     setLocationDistrict(item.district ?? "");
     setLocationMunicipality(item.municipality ?? "");
     setLocationAddress(item.address ?? "");
+    setBranchGoogleMapsUrl(item.google_maps_url ?? "");
+    setBranchLatitude(item.latitude ?? null);
+    setBranchLongitude(item.longitude ?? null);
     setLocationPhone(item.phone ?? "");
     setLocationEmail(item.email ?? "");
     setEditingLocationId(item.id);
@@ -2049,7 +2109,7 @@ export default function AdminPage() {
                                 }}
                                 className="mt-3 text-sm font-semibold text-green-700 hover:text-green-900"
                               >
-                                View All {count} Companies â†’
+                                View All {count} Companies Ã¢â€ â€™
                               </button>
                             )}
                           </div>
@@ -2174,7 +2234,7 @@ export default function AdminPage() {
                     <p className="mt-2 text-3xl font-extrabold text-green-900">
                       {analyticsTotalReviews > 0
                         ? `${analyticsAverageRating.toFixed(2)} / 5`
-                        : "—"}
+                        : "â€”"}
                     </p>
                   </div>
 
@@ -2202,11 +2262,11 @@ export default function AdminPage() {
                       Best Rated Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsBestCompany?.business_name ?? "—"}
+                      {analyticsBestCompany?.business_name ?? "â€”"}
                     </p>
                     <p className="mt-1 text-sm text-green-700">
                       {analyticsBestCompany
-                        ? `${analyticsBestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsBestCompany.review_count} reviews`
+                        ? `${analyticsBestCompany.average_rating?.toFixed(2)} / 5 Â· ${analyticsBestCompany.review_count} reviews`
                         : "No approved reviews"}
                     </p>
                   </div>
@@ -2216,11 +2276,11 @@ export default function AdminPage() {
                       Lowest Rated Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsLowestCompany?.business_name ?? "—"}
+                      {analyticsLowestCompany?.business_name ?? "â€”"}
                     </p>
                     <p className="mt-1 text-sm text-red-700">
                       {analyticsLowestCompany
-                        ? `${analyticsLowestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsLowestCompany.review_count} reviews`
+                        ? `${analyticsLowestCompany.average_rating?.toFixed(2)} / 5 Â· ${analyticsLowestCompany.review_count} reviews`
                         : "No approved reviews"}
                     </p>
                   </div>
@@ -2230,7 +2290,7 @@ export default function AdminPage() {
                       Most Reviewed Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsMostReviewedCompany?.business_name ?? "—"}
+                      {analyticsMostReviewedCompany?.business_name ?? "â€”"}
                     </p>
                     <p className="mt-1 text-sm text-blue-700">
                       {analyticsMostReviewedCompany
@@ -2255,7 +2315,7 @@ export default function AdminPage() {
                       return (
                         <div key={rating} className="rounded-lg bg-gray-50 p-3">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-gray-800">{rating}★</span>
+                            <span className="font-bold text-gray-800">{rating}â˜…</span>
                             <span className="text-sm text-gray-600">{count}</span>
                           </div>
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
@@ -2283,9 +2343,9 @@ export default function AdminPage() {
                       onChange={(event) => setAnalyticsTrendPeriod(event.target.value)}
                       className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     >
-                      <option value="daily">Daily · Last 7 Days</option>
-                      <option value="weekly">Weekly · Last 12 Weeks</option>
-                      <option value="monthly">Monthly · Last 12 Months</option>
+                      <option value="daily">Daily Â· Last 7 Days</option>
+                      <option value="weekly">Weekly Â· Last 12 Weeks</option>
+                      <option value="monthly">Monthly Â· Last 12 Months</option>
                     </select>
                   </div>
 
@@ -2349,10 +2409,10 @@ export default function AdminPage() {
                             >
                               <div>
                                 <p className="font-bold text-gray-900">
-                                  {expanded ? "▼" : "▶"} {company.business_name}
+                                  {expanded ? "â–¼" : "â–¶"} {company.business_name}
                                 </p>
                                 <p className="mt-1 text-xs text-gray-500">
-                                  {company.overall_review_count} overall business reviews · {company.branches.length} active branches
+                                  {company.overall_review_count} overall business reviews Â· {company.branches.length} active branches
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -2361,7 +2421,7 @@ export default function AdminPage() {
                                 </span>
                                 <span className="font-bold text-yellow-700">
                                   {company.average_rating !== null
-                                    ? `${company.average_rating.toFixed(2)} ★`
+                                    ? `${company.average_rating.toFixed(2)} â˜…`
                                     : "No rating"}
                                 </span>
                               </div>
@@ -2410,7 +2470,7 @@ export default function AdminPage() {
                                           <th className="px-3 py-3">Reviews</th>
                                           {["5.0", "4.5", "4.0", "3.5", "3.0", "2.5", "2.0", "1.5", "1.0", "0.5"].map((rating) => (
                                             <th key={rating} className="whitespace-nowrap px-2 py-3 text-center">
-                                              {rating}★
+                                              {rating}â˜…
                                             </th>
                                           ))}
                                           <th className="px-3 py-3">Average</th>
@@ -2431,7 +2491,7 @@ export default function AdminPage() {
                                             <td className="px-3 py-3 font-bold text-yellow-700">
                                               {branch.average_rating !== null
                                                 ? `${branch.average_rating.toFixed(2)} / 5`
-                                                : "—"}
+                                                : "â€”"}
                                             </td>
                                           </tr>
                                         ))}
@@ -2563,8 +2623,8 @@ export default function AdminPage() {
                           </h4>
 
                           <p className="mt-1 text-sm text-yellow-600">
-                            {"â˜…".repeat(review.rating)}
-                            {"â˜†".repeat(5 - review.rating)}
+                            {"Ã¢Ëœâ€¦".repeat(review.rating)}
+                            {"Ã¢Ëœâ€ ".repeat(5 - review.rating)}
                             <span className="ml-2 text-gray-500">
                               ({review.rating}/5)
                             </span>
@@ -2706,7 +2766,7 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="max-w-[220px] whitespace-pre-wrap px-3 py-3 text-gray-600">
-                              {log.reason || "â€”"}
+                              {log.reason || "Ã¢â‚¬â€"}
                             </td>
                             <td className="px-3 py-3 text-xs text-gray-500">
                               {new Date(log.created_at).toLocaleString()}
@@ -2855,6 +2915,30 @@ export default function AdminPage() {
             placeholder="Enter complete location address"
             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
           />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Google Maps Link (Optional)
+          </label>
+          <input
+            type="url"
+            value={branchGoogleMapsUrl}
+            onChange={(e) => {
+              const url = e.target.value;
+              setBranchGoogleMapsUrl(url);
+              const coordinates = extractGoogleMapsCoordinates(url);
+              if (coordinates) {
+                setBranchLatitude(coordinates.latitude);
+                setBranchLongitude(coordinates.longitude);
+              }
+            }}
+            placeholder="Paste Google Maps share link"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Paste this branch's Google Maps share link.
+          </p>
         </div>
 
         <div>
@@ -3185,6 +3269,30 @@ export default function AdminPage() {
         />
       </div>
 
+      <div className="sm:col-span-2">
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Google Maps Link (Optional)
+        </label>
+        <input
+          type="url"
+          value={companyGoogleMapsUrl}
+          onChange={(e) => {
+            const url = e.target.value;
+            setCompanyGoogleMapsUrl(url);
+            const coordinates = extractGoogleMapsCoordinates(url);
+            if (coordinates) {
+              setCompanyLatitude(coordinates.latitude);
+              setCompanyLongitude(coordinates.longitude);
+            }
+          }}
+          placeholder="Paste Google Maps share link"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Paste the company's Google Maps share link.
+        </p>
+      </div>
+
       <div>
         <label className="mb-2 block text-sm font-semibold text-gray-700">
           Official Company Email
@@ -3362,7 +3470,7 @@ export default function AdminPage() {
                         </p>
                         <p className="mt-1 text-sm text-gray-600">
                           {categories.find((c) => c.id === company.category_id)?.name ?? "Uncategorized"}
-                          {company.location ? ` â€¢ ${company.location}` : ""}
+                          {company.location ? ` Ã¢â‚¬Â¢ ${company.location}` : ""}
                         </p>
                         {company.email && (
                           <p className="mt-1 text-sm text-gray-600">Email: {company.email}</p>

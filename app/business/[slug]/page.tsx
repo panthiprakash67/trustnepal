@@ -14,6 +14,9 @@ type Business = {
   category_id: number;
   description: string | null;
   location: string | null;
+  google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   website: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -630,7 +633,7 @@ function BusinessProfileContent() {
           await supabase
             .from("businesses")
             .select(
-              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch"
+              "id, name, slug, category_id, description, location, website, facebook_url, instagram_url, tiktok_url, youtube_url, email, phone, author, publisher, genre, language, publication_year, isbn, director, cast_members, release_year, duration, production_company, image_url, is_multi_branch, latitude, longitude, google_maps_url"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -989,10 +992,10 @@ if (loading) {
             business.phone ||
             business.website ||
             business.facebook_url ||
-            business.instagram_url || business.tiktok_url || business.youtube_url) && (
+            business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
               {(business.email || business.phone || business.website ||
-                business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url) && (
+                business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <h2 className="text-lg font-bold text-gray-900">
                     Contact Information
@@ -1047,7 +1050,6 @@ if (loading) {
                         </a>
                       </p>
                     )}
-
                     {getSafeSocialUrl(business.instagram_url, "instagram") && (
                       <p className="text-gray-700">
                         <span className="font-semibold">Instagram: </span>
@@ -1089,7 +1091,21 @@ if (loading) {
                         </a>
                       </p>
                     )}
-                  </div>
+
+
+                    {(business.google_maps_url || (business.latitude !== null && business.longitude !== null)) && (
+                      <p className="text-gray-700">
+                        <a
+                          href={business.google_maps_url || `https://www.google.com/maps?q=${business.latitude},${business.longitude}&z=19`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-700 hover:underline"
+                        >
+                          Get Directions on Google Maps ↗
+                        </a>
+                      </p>
+                    )}
+</div>
                 </div>
               )}
 
