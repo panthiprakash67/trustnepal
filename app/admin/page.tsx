@@ -57,6 +57,39 @@ type BusinessLocation = {
   created_at: string;
 };
 
+type BranchAnalytics = {
+  id: number;
+  business_id: number;
+  branch_name: string | null;
+  business_name: string;
+  review_count: number;
+  average_rating: number | null;
+  rating_distribution: Record<string, number>;
+};
+type ReviewAnalyticsStats = {
+  count: number;
+  totalRating: number;
+  ratingDistribution: Record<string, number>;
+};
+
+type CompanyReviewAnalytics = {
+  business_id: number;
+  business_name: string;
+  review_count: number;
+  average_rating: number | null;
+  rating_distribution: Record<string, number>;
+  overall_review_count: number;
+  branches: BranchAnalytics[];
+};
+
+type AnalyticsReview = {
+  id: number;
+  business_id: number;
+  branch_id: number | null;
+  rating: number;
+  created_at: string | null;
+};
+
 type UserRole = {
   user_id: string;
   role: string;
@@ -101,6 +134,16 @@ export default function AdminPage() {
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [totalListedBranches, setTotalListedBranches] = useState(0);
+  const [analyticsBranches, setAnalyticsBranches] = useState<BranchAnalytics[]>([]);
+  const [analyticsCompanies, setAnalyticsCompanies] = useState<CompanyReviewAnalytics[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsReviews, setAnalyticsReviews] = useState<AnalyticsReview[]>([]);
+  const [analyticsDatePreset, setAnalyticsDatePreset] = useState("all");
+  const [analyticsCompanyFilter, setAnalyticsCompanyFilter] = useState("all");
+  const [analyticsCustomStart, setAnalyticsCustomStart] = useState("");
+  const [analyticsCustomEnd, setAnalyticsCustomEnd] = useState("");
+  const [analyticsTrendPeriod, setAnalyticsTrendPeriod] = useState("daily");
+  const [expandedAnalyticsCompanies, setExpandedAnalyticsCompanies] = useState<number[]>([]);
   const [qrCompany, setQrCompany] = useState<Business | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrLoading, setQrLoading] = useState(false);
@@ -114,6 +157,7 @@ export default function AdminPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState("companies");
+  const [mainTab, setMainTab] = useState("overview");
 
   const [companySearch, setCompanySearch] = useState("");
   const [companyCategoryFilter, setCompanyCategoryFilter] = useState("all");
@@ -229,6 +273,7 @@ export default function AdminPage() {
         await loadCategories();
         await loadBusinesses();
         await loadBranchCount();
+        await loadBranchAnalytics();
       }
 
       if (roleData.role === "super_admin") {
@@ -238,6 +283,7 @@ export default function AdminPage() {
       if (["super_admin", "moderator"].includes(roleData.role)) {
         await loadReviews();
         await loadModerationHistory();
+        if (roleData.role === "moderator") setMainTab("admin");
         setActiveTab("reviews");
       }
     } catch (err) {
@@ -357,6 +403,175 @@ export default function AdminPage() {
     if (error) throw error;
 
     setTotalListedBranches(count ?? 0);
+  }
+
+  async function loadBranchAnalytics() {
+    setAnalyticsLoading(true);
+
+    try {
+      const { data: branchData, error: branchError } = await supabase
+        .from("business_branches")
+        .select("id, business_id, branch_name")
+        .eq("is_active", true)
+        .order("branch_name", { ascending: true });
+
+      if (branchError) throw branchError;
+
+      const allReviews: {
+        id: number;
+        business_id: number;
+        branch_id: number | null;
+        rating: number;
+        created_at: string | null;
+      }[] = [];
+
+      const pageSize = 1000;
+      let offset = 0;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("reviews")
+          .select("id, business_id, branch_id, rating, created_at")
+          .eq("status", "approved")
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+
+        if (error) throw error;
+
+        const page = data ?? [];
+        allReviews.push(...page);
+
+        if (page.length < pageSize) break;
+
+        offset += pageSize;
+      }
+
+      const createEmptyStats = (): ReviewAnalyticsStats => ({
+        count: 0,
+        totalRating: 0,
+        ratingDistribution: {
+          "0.5": 0,
+          "1.0": 0,
+          "1.5": 0,
+          "2.0": 0,
+          "2.5": 0,
+          "3.0": 0,
+          "3.5": 0,
+          "4.0": 0,
+          "4.5": 0,
+          "5.0": 0,
+        },
+      });
+
+      const addRating = (stats: ReviewAnalyticsStats, value: number) => {
+        stats.count += 1;
+        stats.totalRating += value;
+
+        const ratingKey = value.toFixed(1);
+
+        if (
+          value >= 0.5 &&
+          value <= 5 &&
+          Number.isInteger(value * 2) &&
+          Object.prototype.hasOwnProperty.call(
+            stats.ratingDistribution,
+            ratingKey
+          )
+        ) {
+          stats.ratingDistribution[ratingKey] += 1;
+        }
+      };
+
+      const companyStats = new Map<number, ReviewAnalyticsStats>();
+      const branchStats = new Map<number, ReviewAnalyticsStats>();
+      const overallReviewCounts = new Map<number, number>();
+
+      for (const business of businesses) {
+        companyStats.set(business.id, createEmptyStats());
+        overallReviewCounts.set(business.id, 0);
+      }
+
+      for (const review of allReviews) {
+        const businessId = review.business_id;
+        const rating = Number(review.rating) || 0;
+
+        let company = companyStats.get(businessId);
+
+        if (!company) {
+          company = createEmptyStats();
+          companyStats.set(businessId, company);
+        }
+
+        addRating(company, rating);
+
+        if (review.branch_id === null) {
+          overallReviewCounts.set(
+            businessId,
+            (overallReviewCounts.get(businessId) ?? 0) + 1
+          );
+        } else {
+          let branch = branchStats.get(review.branch_id);
+
+          if (!branch) {
+            branch = createEmptyStats();
+            branchStats.set(review.branch_id, branch);
+          }
+
+          addRating(branch, rating);
+        }
+      }
+
+      const businessMap = new Map(
+        businesses.map((business) => [business.id, business.name])
+      );
+
+      const result: BranchAnalytics[] = (branchData ?? []).map((branch) => {
+        const stats = branchStats.get(branch.id);
+
+        return {
+          id: branch.id,
+          business_id: branch.business_id,
+          branch_name: branch.branch_name,
+          business_name:
+            businessMap.get(branch.business_id) ?? "Unknown Business",
+          review_count: stats?.count ?? 0,
+          rating_distribution:
+            stats?.ratingDistribution ?? createEmptyStats().ratingDistribution,
+          average_rating:
+            stats && stats.count > 0
+              ? Math.round((stats.totalRating / stats.count) * 100) / 100
+              : null,
+        };
+      });
+
+      const companyResult: CompanyReviewAnalytics[] = businesses.map(
+        (business) => {
+          const stats = companyStats.get(business.id) ?? createEmptyStats();
+
+          return {
+            business_id: business.id,
+            business_name: business.name,
+            review_count: stats.count,
+            average_rating:
+              stats.count > 0
+                ? Math.round((stats.totalRating / stats.count) * 100) / 100
+                : null,
+            rating_distribution: stats.ratingDistribution,
+            overall_review_count:
+              overallReviewCounts.get(business.id) ?? 0,
+            branches: result.filter(
+              (branch) => branch.business_id === business.id
+            ),
+          };
+        }
+      );
+
+      setAnalyticsReviews(allReviews);
+      setAnalyticsBranches(result);
+      setAnalyticsCompanies(companyResult);
+    } finally {
+      setAnalyticsLoading(false);
+    }
   }
 
   async function loadRoles() {
@@ -638,6 +853,7 @@ export default function AdminPage() {
     setCatalogImageFile(null);
     setCatalogImagePreview(company.image_url ?? "");
 
+    setMainTab("admin");
     setActiveTab("companies");
 
     window.scrollTo({
@@ -797,7 +1013,7 @@ export default function AdminPage() {
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 24px Arial";
-      ctx.fillText("TRUSTNEPAL  •  SHARE YOUR EXPERIENCE", 600, height - 83);
+      ctx.fillText("TRUSTNEPAL  â€¢  SHARE YOUR EXPERIENCE", 600, height - 83);
 
       const link = document.createElement("a");
       link.download = `${qrCompany.slug}-trustnepal-qr-poster.png`;
@@ -1250,6 +1466,297 @@ export default function AdminPage() {
     }
   }
 
+  const getNptDateKey = (value: string | Date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kathmandu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(value));
+
+    const year = parts.find((part) => part.type === "year")?.value ?? "";
+    const month = parts.find((part) => part.type === "month")?.value ?? "";
+    const day = parts.find((part) => part.type === "day")?.value ?? "";
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const addDaysToDateKey = (dateKey: string, days: number) => {
+    const date = new Date(`${dateKey}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  };
+
+  const todayNpt = getNptDateKey(new Date());
+  const currentMonthStart = `${todayNpt.slice(0, 7)}-01`;
+
+  const analyticsDateFilteredReviews = analyticsReviews.filter((review) => {
+    if (!review.created_at) return false;
+
+    const reviewDate = getNptDateKey(review.created_at);
+
+    switch (analyticsDatePreset) {
+      case "today":
+        return reviewDate === todayNpt;
+
+      case "last7":
+        return reviewDate >= addDaysToDateKey(todayNpt, -6) &&
+          reviewDate <= todayNpt;
+
+      case "last30":
+        return reviewDate >= addDaysToDateKey(todayNpt, -29) &&
+          reviewDate <= todayNpt;
+
+      case "thisMonth":
+        return reviewDate >= currentMonthStart &&
+          reviewDate <= todayNpt;
+
+      case "custom":
+        if (analyticsCustomStart && reviewDate < analyticsCustomStart) {
+          return false;
+        }
+        if (analyticsCustomEnd && reviewDate > analyticsCustomEnd) {
+          return false;
+        }
+        return true;
+
+      default:
+        return true;
+    }
+  });
+
+  const analyticsFilteredReviews =
+    analyticsCompanyFilter === "all"
+      ? analyticsDateFilteredReviews
+      : analyticsDateFilteredReviews.filter(
+          (review) => review.business_id === Number(analyticsCompanyFilter)
+        );
+
+  const createAnalyticsStats = () => ({
+    count: 0,
+    totalRating: 0,
+    ratingDistribution: {
+      "0.5": 0,
+      "1.0": 0,
+      "1.5": 0,
+      "2.0": 0,
+      "2.5": 0,
+      "3.0": 0,
+      "3.5": 0,
+      "4.0": 0,
+      "4.5": 0,
+      "5.0": 0,
+    } as Record<string, number>,
+  });
+
+  const addAnalyticsRating = (
+    stats: ReturnType<typeof createAnalyticsStats>,
+    rating: number
+  ) => {
+    stats.count += 1;
+    stats.totalRating += rating;
+
+    const key = rating.toFixed(1);
+
+    if (
+      rating >= 0.5 &&
+      rating <= 5 &&
+      Number.isInteger(rating * 2) &&
+      Object.prototype.hasOwnProperty.call(stats.ratingDistribution, key)
+    ) {
+      stats.ratingDistribution[key] += 1;
+    }
+  };
+
+  const overallAnalyticsStats = createAnalyticsStats();
+  const companyAnalyticsMap = new Map<
+    number,
+    ReturnType<typeof createAnalyticsStats>
+  >();
+  const branchAnalyticsMap = new Map<
+    number,
+    ReturnType<typeof createAnalyticsStats>
+  >();
+
+  for (const review of analyticsFilteredReviews) {
+    const rating = Number(review.rating) || 0;
+
+    addAnalyticsRating(overallAnalyticsStats, rating);
+
+    let companyStats = companyAnalyticsMap.get(review.business_id);
+
+    if (!companyStats) {
+      companyStats = createAnalyticsStats();
+      companyAnalyticsMap.set(review.business_id, companyStats);
+    }
+
+    addAnalyticsRating(companyStats, rating);
+
+    if (review.branch_id !== null) {
+      let branchStats = branchAnalyticsMap.get(review.branch_id);
+
+      if (!branchStats) {
+        branchStats = createAnalyticsStats();
+        branchAnalyticsMap.set(review.branch_id, branchStats);
+      }
+
+      addAnalyticsRating(branchStats, rating);
+    }
+  }
+
+  const analyticsCompanyRows = businesses
+    .filter((business) =>
+      analyticsCompanyFilter === "all"
+        ? true
+        : business.id === Number(analyticsCompanyFilter)
+    )
+    .map((business) => {
+      const stats =
+        companyAnalyticsMap.get(business.id) ?? createAnalyticsStats();
+
+      const branches = analyticsBranches
+        .filter((branch) => branch.business_id === business.id)
+        .map((branch) => {
+          const branchStats =
+            branchAnalyticsMap.get(branch.id) ?? createAnalyticsStats();
+
+          return {
+            ...branch,
+            review_count: branchStats.count,
+            rating_distribution: branchStats.ratingDistribution,
+            average_rating:
+              branchStats.count > 0
+                ? Math.round(
+                    (branchStats.totalRating / branchStats.count) * 100
+                  ) / 100
+                : null,
+          };
+        })
+        .sort((a, b) => b.review_count - a.review_count);
+
+      return {
+        business_id: business.id,
+        business_name: business.name,
+        review_count: stats.count,
+        average_rating:
+          stats.count > 0
+            ? Math.round((stats.totalRating / stats.count) * 100) / 100
+            : null,
+        rating_distribution: stats.ratingDistribution,
+        overall_review_count: analyticsFilteredReviews.filter(
+          (review) =>
+            review.business_id === business.id && review.branch_id === null
+        ).length,
+        branches,
+      };
+    })
+    .sort((a, b) => b.review_count - a.review_count);
+
+  const analyticsTotalReviews = overallAnalyticsStats.count;
+
+  const analyticsAverageRating =
+    overallAnalyticsStats.count > 0
+      ? overallAnalyticsStats.totalRating / overallAnalyticsStats.count
+      : 0;
+
+  const analyticsRatingDistribution =
+    overallAnalyticsStats.ratingDistribution;
+
+  const analyticsRatedBranches = analyticsCompanyRows
+    .flatMap((company) => company.branches)
+    .filter((branch) => branch.average_rating !== null);
+
+  const analyticsSortedBranches = analyticsCompanyRows
+    .flatMap((company) => company.branches)
+    .sort((a, b) => b.review_count - a.review_count);
+
+  const analyticsTopBranch = analyticsSortedBranches.find(
+    (branch) => branch.review_count > 0
+  );
+
+  const analyticsBestCompany = [...analyticsCompanyRows]
+    .filter((company) => company.review_count > 0)
+    .sort(
+      (a, b) =>
+        (b.average_rating ?? 0) - (a.average_rating ?? 0)
+    )[0];
+
+  const analyticsLowestCompany = [...analyticsCompanyRows]
+    .filter((company) => company.review_count > 0)
+    .sort(
+      (a, b) =>
+        (a.average_rating ?? 0) - (b.average_rating ?? 0)
+    )[0];
+
+  const analyticsMostReviewedCompany = [...analyticsCompanyRows]
+    .filter((company) => company.review_count > 0)
+    .sort((a, b) => b.review_count - a.review_count)[0];
+
+  const trendBuckets = new Map<string, number>();
+  const trendToday = new Date(`${todayNpt}T00:00:00Z`);
+
+  const getWeekStart = (dateKey: string) => {
+    const date = new Date(`${dateKey}T00:00:00Z`);
+    const day = date.getUTCDay();
+    date.setUTCDate(date.getUTCDate() - ((day + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  };
+
+  if (analyticsTrendPeriod === "daily") {
+    for (let i = 6; i >= 0; i--) {
+      const key = addDaysToDateKey(todayNpt, -i);
+      trendBuckets.set(key, 0);
+    }
+  } else if (analyticsTrendPeriod === "weekly") {
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(trendToday);
+      date.setUTCDate(date.getUTCDate() - i * 7);
+      const key = getWeekStart(date.toISOString().slice(0, 10));
+      trendBuckets.set(key, 0);
+    }
+  } else {
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(`${todayNpt.slice(0, 7)}-01T00:00:00Z`);
+      date.setUTCMonth(date.getUTCMonth() - i);
+      const key = date.toISOString().slice(0, 7);
+      trendBuckets.set(key, 0);
+    }
+  }
+
+  for (const review of analyticsFilteredReviews) {
+    if (!review.created_at) continue;
+
+    const dateKey = getNptDateKey(review.created_at);
+    let key = dateKey;
+
+    if (analyticsTrendPeriod === "weekly") {
+      key = getWeekStart(dateKey);
+    } else if (analyticsTrendPeriod === "monthly") {
+      key = dateKey.slice(0, 7);
+    }
+
+    if (trendBuckets.has(key)) {
+      trendBuckets.set(key, (trendBuckets.get(key) ?? 0) + 1);
+    }
+  }
+
+  const analyticsTrendData = Array.from(trendBuckets.entries()).map(
+    ([key, count]) => ({
+      key,
+      count,
+      label:
+        analyticsTrendPeriod === "monthly"
+          ? key
+          : analyticsTrendPeriod === "weekly"
+            ? `Week ${key.slice(5)}`
+            : key.slice(5),
+    })
+  );
+
+  const analyticsTrendMax = Math.max(
+    1,
+    ...analyticsTrendData.map((item) => item.count)
+  );
   const filteredReviews =
     reviewFilter === "all"
       ? reviews
@@ -1321,8 +1828,121 @@ export default function AdminPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-5 py-8">
+        {/* Main Dashboard Navigation */}
+        <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {["super_admin", "admin"].includes(userRole) && (
+              <button
+                onClick={() => setMainTab("overview")}
+                className={`rounded-xl px-4 py-4 text-sm font-bold transition ${
+                  mainTab === "overview"
+                    ? "bg-green-700 text-white shadow-sm"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                Category Overview
+              </button>
+            )}
+
+            {["super_admin", "admin"].includes(userRole) && (
+              <button
+                onClick={() => setMainTab("analytics")}
+                className={`rounded-xl px-4 py-4 text-sm font-bold transition ${
+                  mainTab === "analytics"
+                    ? "bg-green-700 text-white shadow-sm"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                Review Analytics
+              </button>
+            )}
+
+            {["super_admin", "admin", "moderator"].includes(userRole) && (
+              <button
+                onClick={() => setMainTab("admin")}
+                className={`rounded-xl px-4 py-4 text-sm font-bold transition ${
+                  mainTab === "admin"
+                    ? "bg-green-700 text-white shadow-sm"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                Admin
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Admin Management Sub-navigation */}
+        {mainTab === "admin" && (
+          <div className="mb-6 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {["super_admin", "admin"].includes(userRole) && (
+                <button
+                  onClick={() => setActiveTab("companies")}
+                  className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                    activeTab === "companies"
+                      ? "bg-green-700 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Company Management
+                </button>
+              )}
+
+              {["super_admin", "moderator"].includes(userRole) && (
+                <button
+                  onClick={() => setActiveTab("reviews")}
+                  className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                    activeTab === "reviews"
+                      ? "bg-green-700 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Review Management
+                </button>
+              )}
+
+              {userRole === "super_admin" && (
+                <>
+                  <button
+                    onClick={() => setActiveTab("users")}
+                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                      activeTab === "users"
+                        ? "bg-green-700 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Admin Management
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("businessAccounts")}
+                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                      activeTab === "businessAccounts"
+                        ? "bg-green-700 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Business Management
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("categories")}
+                    className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                      activeTab === "categories"
+                        ? "bg-green-700 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Category Management
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         {/* Company Dashboard */}
-        {["super_admin", "admin"].includes(userRole) && (
+        {mainTab === "overview" && ["super_admin", "admin"].includes(userRole) && (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -1424,11 +2044,12 @@ export default function AdminPage() {
                                   setCompanyCategoryFilter(String(category.id));
                                   setCompanySearch("");
                                   setCompanyPage(1);
+                                  setMainTab("admin");
                                   setActiveTab("companies");
                                 }}
                                 className="mt-3 text-sm font-semibold text-green-700 hover:text-green-900"
                               >
-                                View All {count} Companies →
+                                View All {count} Companies â†’
                               </button>
                             )}
                           </div>
@@ -1446,71 +2067,390 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* Dashboard Tabs */}
-        <div className="mt-8 flex flex-wrap gap-2">
-          {["super_admin", "admin"].includes(userRole) && (
-            <button
-              onClick={() => setActiveTab("companies")}
-              className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                activeTab === "companies"
-                  ? "bg-green-700 text-white"
-                  : "bg-white text-gray-700"
-              }`}
-            >
-              Company Management
-            </button>
-          )}
-
-          {["super_admin", "moderator"].includes(userRole) && (
-            <button
-              onClick={() => setActiveTab("reviews")}
-              className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                activeTab === "reviews"
-                  ? "bg-green-700 text-white"
-                  : "bg-white text-gray-700"
-              }`}
-            >
-              Review Management
-            </button>
-          )}
-
-          {userRole === "super_admin" && (
-            <>
-              <button
-                onClick={() => setActiveTab("users")}
-                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                  activeTab === "users"
-                    ? "bg-green-700 text-white"
-                    : "bg-white text-gray-700"
-                }`}
-              >
-                Admin Management
-              </button>
+        {/* Review Analytics */}
+        {mainTab === "analytics" && ["super_admin", "admin"].includes(userRole) && (
+          <section className="mt-8 rounded-xl bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Review Analytics
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Approved reviews across companies and branches. Dates use Nepal Time (NPT).
+                </p>
+              </div>
 
               <button
-                onClick={() => setActiveTab("businessAccounts")}
-                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                  activeTab === "businessAccounts"
-                    ? "bg-green-700 text-white"
-                    : "bg-white text-gray-700"
-                }`}
+                onClick={() => void loadBranchAnalytics()}
+                disabled={analyticsLoading}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                Business Account Management
+                {analyticsLoading ? "Refreshing..." : "Refresh Analytics"}
               </button>
-              <button
-                onClick={() => setActiveTab("categories")}
-                className={`rounded-lg px-5 py-3 text-sm font-semibold ${
-                  activeTab === "categories"
-                    ? "bg-green-700 text-white"
-                    : "bg-white text-gray-700"
-                }`}
-              >
-                Category Management
-              </button>
-            </>
-          )}
-        </div>
+            </div>
 
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Company
+                </label>
+                <select
+                  value={analyticsCompanyFilter}
+                  onChange={(event) => setAnalyticsCompanyFilter(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black [&_option]:text-black"
+                >
+                  <option value="all">All Companies</option>
+                  {businesses.map((business) => (
+                    <option key={business.id} value={business.id}>
+                      {business.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Date Range
+                </label>
+                <select
+                  value={analyticsDatePreset}
+                  onChange={(event) => setAnalyticsDatePreset(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black [&_option]:text-black"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today (NPT)</option>
+                  <option value="last7">Last 7 Days</option>
+                  <option value="last30">Last 30 Days</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="custom">Custom Date</option>
+                </select>
+              </div>
+            </div>
+
+            {analyticsDatePreset === "custom" && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Start Date (NPT)
+                  </label>
+                  <input
+                    type="date"
+                    value={analyticsCustomStart}
+                    onChange={(event) => setAnalyticsCustomStart(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    End Date (NPT)
+                  </label>
+                  <input
+                    type="date"
+                    value={analyticsCustomEnd}
+                    min={analyticsCustomStart || undefined}
+                    onChange={(event) => setAnalyticsCustomEnd(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            {analyticsLoading ? (
+              <p className="mt-6 text-center text-gray-500">
+                Loading review analytics...
+              </p>
+            ) : (
+              <>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl bg-blue-50 p-5">
+                    <p className="text-sm text-blue-700">Approved Reviews</p>
+                    <p className="mt-2 text-3xl font-extrabold text-blue-900">
+                      {analyticsTotalReviews}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-green-50 p-5">
+                    <p className="text-sm text-green-700">Average Rating</p>
+                    <p className="mt-2 text-3xl font-extrabold text-green-900">
+                      {analyticsTotalReviews > 0
+                        ? `${analyticsAverageRating.toFixed(2)} / 5`
+                        : "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-yellow-50 p-5">
+                    <p className="text-sm text-yellow-700">Companies</p>
+                    <p className="mt-2 text-3xl font-extrabold text-yellow-900">
+                      {analyticsCompanyRows.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-purple-50 p-5">
+                    <p className="text-sm text-purple-700">Active Branches</p>
+                    <p className="mt-2 text-3xl font-extrabold text-purple-900">
+                      {analyticsCompanyRows.reduce(
+                        (total, company) => total + company.branches.length,
+                        0
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-green-200 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Best Rated Company
+                    </p>
+                    <p className="mt-2 font-bold text-gray-900">
+                      {analyticsBestCompany?.business_name ?? "—"}
+                    </p>
+                    <p className="mt-1 text-sm text-green-700">
+                      {analyticsBestCompany
+                        ? `${analyticsBestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsBestCompany.review_count} reviews`
+                        : "No approved reviews"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-red-200 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Lowest Rated Company
+                    </p>
+                    <p className="mt-2 font-bold text-gray-900">
+                      {analyticsLowestCompany?.business_name ?? "—"}
+                    </p>
+                    <p className="mt-1 text-sm text-red-700">
+                      {analyticsLowestCompany
+                        ? `${analyticsLowestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsLowestCompany.review_count} reviews`
+                        : "No approved reviews"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-200 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">
+                      Most Reviewed Company
+                    </p>
+                    <p className="mt-2 font-bold text-gray-900">
+                      {analyticsMostReviewedCompany?.business_name ?? "—"}
+                    </p>
+                    <p className="mt-1 text-sm text-blue-700">
+                      {analyticsMostReviewedCompany
+                        ? `${analyticsMostReviewedCompany.review_count} approved reviews`
+                        : "No approved reviews"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-7">
+                  <h3 className="mb-3 text-lg font-bold text-gray-900">
+                    Rating Distribution
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    {["5.0", "4.5", "4.0", "3.5", "3.0", "2.5", "2.0", "1.5", "1.0", "0.5"].map((rating) => {
+                      const count = analyticsRatingDistribution[rating] ?? 0;
+                      const percent =
+                        analyticsTotalReviews > 0
+                          ? (count / analyticsTotalReviews) * 100
+                          : 0;
+
+                      return (
+                        <div key={rating} className="rounded-lg bg-gray-50 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-gray-800">{rating}★</span>
+                            <span className="text-sm text-gray-600">{count}</span>
+                          </div>
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-yellow-500"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {percent.toFixed(1)}%
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-7">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Review Trends
+                    </h3>
+                    <select
+                      value={analyticsTrendPeriod}
+                      onChange={(event) => setAnalyticsTrendPeriod(event.target.value)}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="daily">Daily · Last 7 Days</option>
+                      <option value="weekly">Weekly · Last 12 Weeks</option>
+                      <option value="monthly">Monthly · Last 12 Months</option>
+                    </select>
+                  </div>
+
+                  <div className="mt-4 max-h-[280px] space-y-3 overflow-y-auto pr-2">
+                    {analyticsTrendData.map((item) => (
+                      <div key={item.key} className="flex items-center gap-3">
+                        <span className="w-24 shrink-0 text-xs text-gray-600">
+                          {item.label}
+                        </span>
+                        <div className="h-6 flex-1 overflow-hidden rounded bg-gray-100">
+                          <div
+                            className="flex h-full items-center rounded bg-blue-500 px-2 text-xs font-semibold text-white"
+                            style={{
+                              width: `${Math.max(
+                                item.count > 0 ? 3 : 0,
+                                (item.count / analyticsTrendMax) * 100
+                              )}%`,
+                            }}
+                          >
+                            {item.count > 0 ? item.count : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-7">
+                  <h3 className="mb-3 text-lg font-bold text-gray-900">
+                    Company-wise Review Analytics
+                  </h3>
+
+                  {analyticsCompanyRows.length === 0 ? (
+                    <p className="rounded-lg bg-gray-50 p-5 text-center text-gray-500">
+                      No companies found.
+                    </p>
+                  ) : (
+                    <div className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
+                      {analyticsCompanyRows.map((company) => {
+                        const expanded = expandedAnalyticsCompanies.includes(
+                          company.business_id
+                        );
+
+                        return (
+                          <div
+                            key={company.business_id}
+                            className="overflow-hidden rounded-xl border border-gray-200"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedAnalyticsCompanies((current) =>
+                                  current.includes(company.business_id)
+                                    ? current.filter(
+                                        (id) => id !== company.business_id
+                                      )
+                                    : [...current, company.business_id]
+                                )
+                              }
+                              className="flex w-full flex-wrap items-center justify-between gap-3 bg-gray-50 p-4 text-left hover:bg-gray-100"
+                            >
+                              <div>
+                                <p className="font-bold text-gray-900">
+                                  {expanded ? "▼" : "▶"} {company.business_name}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                  {company.overall_review_count} overall business reviews · {company.branches.length} active branches
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-4 text-sm">
+                                <span className="font-semibold text-gray-700">
+                                  {company.review_count} reviews
+                                </span>
+                                <span className="font-bold text-yellow-700">
+                                  {company.average_rating !== null
+                                    ? `${company.average_rating.toFixed(2)} ★`
+                                    : "No rating"}
+                                </span>
+                              </div>
+                            </button>
+
+                            {expanded && (
+                              <div className="p-4">
+                                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                  <div className="rounded-lg bg-blue-50 p-3">
+                                    <p className="text-xs text-blue-700">Company Total</p>
+                                    <p className="text-xl font-bold text-blue-900">
+                                      {company.review_count}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg bg-green-50 p-3">
+                                    <p className="text-xs text-green-700">Overall Reviews</p>
+                                    <p className="text-xl font-bold text-green-900">
+                                      {company.overall_review_count}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg bg-purple-50 p-3">
+                                    <p className="text-xs text-purple-700">Branch Reviews</p>
+                                    <p className="text-xl font-bold text-purple-900">
+                                      {company.branches.reduce(
+                                        (total, branch) => total + branch.review_count,
+                                        0
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <h4 className="mb-2 font-semibold text-gray-800">
+                                  Branch-wise Review Analytics
+                                </h4>
+
+                                {company.branches.length === 0 ? (
+                                  <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500">
+                                    No active branches found.
+                                  </p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[850px] border-collapse text-left text-sm">
+                                      <thead>
+                                        <tr className="border-b bg-gray-50 text-gray-600">
+                                          <th className="px-3 py-3">Branch</th>
+                                          <th className="px-3 py-3">Reviews</th>
+                                          {["5.0", "4.5", "4.0", "3.5", "3.0", "2.5", "2.0", "1.5", "1.0", "0.5"].map((rating) => (
+                                            <th key={rating} className="whitespace-nowrap px-2 py-3 text-center">
+                                              {rating}★
+                                            </th>
+                                          ))}
+                                          <th className="px-3 py-3">Average</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {company.branches.map((branch) => (
+                                          <tr key={branch.id} className="border-b last:border-0">
+                                            <td className="px-3 py-3 font-semibold text-gray-800">
+                                              {branch.branch_name || "Unnamed Branch"}
+                                            </td>
+                                            <td className="px-3 py-3">{branch.review_count}</td>
+                                            {["5.0", "4.5", "4.0", "3.5", "3.0", "2.5", "2.0", "1.5", "1.0", "0.5"].map((rating) => (
+                                              <td key={rating} className="px-2 py-3 text-center">
+                                                {branch.rating_distribution[rating] ?? 0}
+                                              </td>
+                                            ))}
+                                            <td className="px-3 py-3 font-bold text-yellow-700">
+                                              {branch.average_rating !== null
+                                                ? `${branch.average_rating.toFixed(2)} / 5`
+                                                : "—"}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        )}
         {error && (
           <div className="mt-5 rounded-lg bg-red-100 p-4 text-sm text-red-700">
             {error}
@@ -1530,7 +2470,7 @@ export default function AdminPage() {
         )}
 
         {/* Review Management */}
-        {activeTab === "reviews" &&
+        {mainTab === "admin" && activeTab === "reviews" &&
           ["super_admin", "moderator"].includes(userRole) && (
             <section className="mt-6 space-y-6">
               <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -1623,8 +2563,8 @@ export default function AdminPage() {
                           </h4>
 
                           <p className="mt-1 text-sm text-yellow-600">
-                            {"★".repeat(review.rating)}
-                            {"☆".repeat(5 - review.rating)}
+                            {"â˜…".repeat(review.rating)}
+                            {"â˜†".repeat(5 - review.rating)}
                             <span className="ml-2 text-gray-500">
                               ({review.rating}/5)
                             </span>
@@ -1766,7 +2706,7 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="max-w-[220px] whitespace-pre-wrap px-3 py-3 text-gray-600">
-                              {log.reason || "—"}
+                              {log.reason || "â€”"}
                             </td>
                             <td className="px-3 py-3 text-xs text-gray-500">
                               {new Date(log.created_at).toLocaleString()}
@@ -1782,7 +2722,7 @@ export default function AdminPage() {
           )}
 
         {/* Company Management */}
-        {activeTab === "companies" &&
+        {mainTab === "admin" && activeTab === "companies" &&
           ["super_admin", "admin"].includes(userRole) && (
             <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
               <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
@@ -2422,7 +3362,7 @@ export default function AdminPage() {
                         </p>
                         <p className="mt-1 text-sm text-gray-600">
                           {categories.find((c) => c.id === company.category_id)?.name ?? "Uncategorized"}
-                          {company.location ? ` • ${company.location}` : ""}
+                          {company.location ? ` â€¢ ${company.location}` : ""}
                         </p>
                         {company.email && (
                           <p className="mt-1 text-sm text-gray-600">Email: {company.email}</p>
@@ -2519,7 +3459,7 @@ export default function AdminPage() {
           )}
 
         {/* Admin Management */}
-        {activeTab === "users" && userRole === "super_admin" && (
+        {mainTab === "admin" && activeTab === "users" && userRole === "super_admin" && (
           <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
             <div className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
               <h2 className="text-xl font-bold text-gray-900">
@@ -2620,7 +3560,7 @@ export default function AdminPage() {
         )}
 
         {/* Business Account Management */}
-        {activeTab === "businessAccounts" && userRole === "super_admin" && (
+        {mainTab === "admin" && activeTab === "businessAccounts" && userRole === "super_admin" && (
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-gray-900">
               Create Business Account Invitation
@@ -2776,7 +3716,7 @@ export default function AdminPage() {
           </section>
         )}
         {/* Category Management */}
-        {activeTab === "categories" && userRole === "super_admin" && (
+        {mainTab === "admin" && activeTab === "categories" && userRole === "super_admin" && (
           <section className="mt-6 grid items-start gap-6 lg:grid-cols-5">
             <div className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-2">
               <h2 className="text-xl font-bold text-gray-900">
