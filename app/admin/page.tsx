@@ -2476,10 +2476,10 @@ export default function AdminPage() {
                                           <th className="px-3 py-3">Average</th>
                                         </tr>
                                       </thead>
-                                      <tbody>
+                                      <tbody className="text-gray-900">
                                         {company.branches.map((branch) => (
                                           <tr key={branch.id} className="border-b last:border-0">
-                                            <td className="px-3 py-3 font-semibold text-gray-800">
+                                            <td className="px-3 py-3 font-semibold text-gray-900">
                                               {branch.branch_name || "Unnamed Branch"}
                                             </td>
                                             <td className="px-3 py-3">{branch.review_count}</td>
@@ -2488,7 +2488,7 @@ export default function AdminPage() {
                                                 {branch.rating_distribution[rating] ?? 0}
                                               </td>
                                             ))}
-                                            <td className="px-3 py-3 font-bold text-yellow-700">
+                                            <td className="px-3 py-3 font-bold text-gray-900">
                                               {branch.average_rating !== null
                                                 ? `${branch.average_rating.toFixed(2)} / 5`
                                                 : "—"}

@@ -4,6 +4,7 @@
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { MessageSquare, ArrowLeft, MapPin, Reply, ArrowUpRight, UserRound } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
 type Business = {
@@ -75,6 +76,15 @@ function getSafeSocialUrl(
 type BusinessLocation = {
   id: number;
   branch_name: string | null;
+  province: string | null;
+  district: string | null;
+  municipality: string | null;
+  address: string | null;
+  google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  email: string | null;
 };
 
 type Review = {
@@ -165,7 +175,7 @@ function ReplyList({
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 font-bold text-green-700">
                   {reply.full_name?.trim()
                     ? reply.full_name.trim().charAt(0).toUpperCase()
-                    : "👤"}
+                    : <UserRound size={20} className="text-gray-400" />}
                 </div>
               )}
 
@@ -188,7 +198,7 @@ function ReplyList({
               onClick={() => onReplyClick(reviewId, reply.id)}
               className="mt-3 text-sm font-semibold text-green-700 hover:underline"
             >
-              ↳ Reply
+              <Reply size={15} className="inline mr-1" /> Reply
             </button>
 
             {isActive && (
@@ -279,6 +289,8 @@ function BusinessProfileContent() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [businessLocations, setBusinessLocations] = useState<BusinessLocation[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const [branchStats, setBranchStats] = useState<Record<number, { averageRating: number; totalReviews: number }>>({});
+  const [branchSearch, setBranchSearch] = useState("");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [totalReviews, setTotalReviews] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
@@ -303,9 +315,10 @@ function BusinessProfileContent() {
 
   const reviewDraftKey = `trustnepal_review_draft:${slug}`;
   const autoSubmitStarted = useRef(false);
+  const reviewSectionRef = useRef<HTMLElement | null>(null);
 
   function getAutoReviewTitle(value: number): string {
-    if (value <= 2) return "Below Average – Needs Improvement";
+    if (value <= 2) return "Below Average - Needs Improvement";
     if (value <= 3) return "Average";
     if (value === 3.5) return "Good";
     if (value === 4) return "Very Good";
@@ -692,13 +705,47 @@ setContactInfoHeight(height);
 
         const { data: locationData, error: locationError } = await (supabase as any)
           .from("business_branches")
-          .select("id, branch_name")
+          .select("id, branch_name, province, district, municipality, address, google_maps_url, latitude, longitude, phone, email")
           .eq("business_id", businessData.id)
           .eq("is_active", true)
           .order("created_at", { ascending: true });
 
         if (locationError) throw locationError;
         setBusinessLocations(locationData ?? []);
+
+        const { data: branchReviewData, error: branchReviewError } = await supabase
+          .from("reviews")
+          .select("branch_id, rating")
+          .eq("business_id", businessData.id)
+          .eq("status", "approved")
+          .not("branch_id", "is", null);
+
+        if (branchReviewError) throw branchReviewError;
+
+        const calculatedBranchStats: Record<number, { averageRating: number; totalReviews: number }> = {};
+
+        (branchReviewData ?? []).forEach((review) => {
+          if (review.branch_id === null) return;
+
+          if (!calculatedBranchStats[review.branch_id]) {
+            calculatedBranchStats[review.branch_id] = {
+              averageRating: 0,
+              totalReviews: 0,
+            };
+          }
+
+          calculatedBranchStats[review.branch_id].averageRating += review.rating;
+          calculatedBranchStats[review.branch_id].totalReviews += 1;
+        });
+
+        Object.keys(calculatedBranchStats).forEach((branchId) => {
+          const stats = calculatedBranchStats[Number(branchId)];
+          stats.averageRating = Number(
+            (stats.averageRating / stats.totalReviews).toFixed(1)
+          );
+        });
+
+        setBranchStats(calculatedBranchStats);
 
         await loadReviews(businessData.id);
       } catch (err) {
@@ -888,6 +935,19 @@ if (loading) {
     );
   }
 
+  const filteredBranches = businessLocations.filter((branch) => {
+    const searchText = branchSearch.trim().toLowerCase();
+    const searchableText = [
+      branch.branch_name,
+      branch.province,
+      branch.district,
+      branch.municipality,
+      branch.address,
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    return !searchText || searchableText.includes(searchText);
+  });
+
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
@@ -900,7 +960,7 @@ if (loading) {
             href="/"
             className="text-sm font-semibold text-gray-600 hover:text-green-700"
           >
-            ← Back to Homepage
+            <ArrowLeft size={15} className="inline mr-1" />
           </Link>
         </div>
       </header>
@@ -1017,7 +1077,7 @@ if (loading) {
           )}
           {business.categoryName !== "Books" && business.categoryName !== "Movies" && business.location && (
             <p className="mt-3 text-gray-600">
-              📍 {business.location}
+              <MapPin size={16} className="inline mr-1" /> {business.location}
             </p>
           )}
 
@@ -1026,11 +1086,11 @@ if (loading) {
             business.phone ||
             business.website ||
             business.facebook_url ||
-            business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
-            <div className="mt-6 grid grid-cols-1 items-start gap-5 md:grid-cols-2">
+            business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null)) || (business.is_multi_branch && businessLocations.length > 0)) && (
+            <div className={`mt-6 grid grid-cols-1 items-start gap-5 ${business.is_multi_branch && businessLocations.length > 0 ? "xl:grid-cols-3" : "md:grid-cols-2"}`}>
               {(business.email || business.phone || business.website ||
-                business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
-                <div ref={setContactInfoElement} className="h-fit self-start rounded-xl border border-gray-200 bg-gray-50 p-5">
+                business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null)) || (business.is_multi_branch && businessLocations.length > 0)) && (
+                <div ref={setContactInfoElement} className="order-1 h-fit self-start rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <h2 className="text-lg font-bold text-gray-900">
                     Contact Information
                   </h2>
@@ -1136,7 +1196,7 @@ if (loading) {
                           rel="noopener noreferrer"
                           className="font-medium text-green-700 hover:underline"
                         >
-                          Get Directions on Google Maps ↗
+                          Get Directions on Google Maps <ArrowUpRight size={14} className="inline ml-1" />
                         </a>
                       </p>
                     )}
@@ -1144,9 +1204,145 @@ if (loading) {
                 </div>
               )}
 
+                            {business.is_multi_branch && businessLocations.length > 0 && (
+                <div
+                  className="order-3 flex h-[var(--contact-info-height)] min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5 xl:order-2"
+                  style={{
+                    "--contact-info-height": contactInfoHeight
+                      ? `${contactInfoHeight}px`
+                      : "auto",
+                  } as React.CSSProperties}
+                >
+                  <h2 className="shrink-0 text-lg font-bold text-gray-900">
+                    Explore Branches
+                  </h2>
+
+                  <input
+                    type="text"
+                    value={branchSearch}
+                    onChange={(e) => setBranchSearch(e.target.value)}
+                    placeholder="Search branches/location"
+                    className="mt-2 w-full shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  />
+
+                  <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                    {filteredBranches.length > 0 ? (
+                      filteredBranches.map((branch) => {
+                        const stats = branchStats[branch.id];
+                        const branchAddress = [
+                          branch.address,
+                          branch.municipality,
+                          branch.district,
+                          branch.province,
+                        ].filter(Boolean).join(", ");
+
+                        const mapsUrl = branch.google_maps_url ||
+                          (branch.latitude !== null && branch.longitude !== null
+                            ? `https://www.google.com/maps?q=${branch.latitude},${branch.longitude}`
+                            : null);
+
+                        return (
+                          <div
+                            key={branch.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setSelectedBranchId(branch.id);
+                              reviewSectionRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelectedBranchId(branch.id);
+                                reviewSectionRef.current?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                });
+                              }
+                            }}
+                            className="cursor-pointer rounded-lg border border-gray-200 bg-white p-3 transition hover:border-green-400 hover:bg-green-50/40 focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            <h3 className="font-bold text-gray-900">
+                              {branch.branch_name || "Unnamed Branch"}
+                            </h3>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                              <span className="font-semibold text-amber-600">
+                                {stats && stats.totalReviews > 0
+                                  ? `${stats.averageRating.toFixed(1)} Average Rating`
+                                  : "No ratings yet"}
+                              </span>
+                              <span className="text-gray-500">
+                                {stats?.totalReviews ?? 0} Reviews
+                              </span>
+                            </div>
+
+                            {branchAddress && (
+                              <p className="mt-2 text-xs leading-5 text-gray-600">
+                                <span className="font-semibold text-gray-700">Address: </span>
+                                {branchAddress}
+                              </p>
+                            )}
+
+                            {branch.phone && (
+                              <p className="mt-1 text-xs text-gray-600">
+                                <span className="font-semibold text-gray-700">Phone: </span>
+                                <a
+                                  href={`tel:${branch.phone.replace(/[^+\d]/g, "")}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-green-700 hover:underline"
+                                >
+                                  {branch.phone}
+                                </a>
+                              </p>
+                            )}
+
+                            {branch.email && (
+                              <p className="mt-1 break-all text-xs text-gray-600">
+                                <span className="font-semibold text-gray-700">Email: </span>
+                                <a
+                                  href={`mailto:${branch.email}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-green-700 hover:underline"
+                                >
+                                  {branch.email}
+                                </a>
+                              </p>
+                            )}
+
+                            {mapsUrl && (
+                              <a
+                                href={mapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-2 inline-block text-xs font-semibold text-green-700 hover:underline"
+                              >
+                                Get Directions on Google Maps →
+                              </a>
+                            )}
+
+                            <p className="mt-2 border-t border-gray-100 pt-2 text-xs font-medium text-green-700">
+                              Select this branch to write a review
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-lg bg-white p-4 text-center text-sm text-gray-500">
+                        No branches found matching your search.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {business.description && (
                 <div
-                  className="flex h-[var(--contact-info-height)] min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5"
+                  className="order-2 flex h-[var(--contact-info-height)] min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5 xl:order-3"
                   style={{
                     "--contact-info-height": contactInfoHeight
                       ? `${contactInfoHeight}px`
@@ -1167,7 +1363,7 @@ if (loading) {
           )}
         </section>
 
-        <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+        <section ref={reviewSectionRef} className="mt-10 scroll-mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
           <h2 className="text-2xl font-extrabold text-gray-900">
             Write a Review
           </h2>
@@ -1348,7 +1544,7 @@ if (loading) {
 
           {reviews.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-              <div className="text-4xl">⭐</div>
+              <div className="flex justify-center"><MessageSquare size={40} className="text-gray-400" /></div>
               <h3 className="mt-4 text-xl font-bold text-gray-900">
                 No approved reviews yet
               </h3>
@@ -1380,7 +1576,7 @@ if (loading) {
                           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl text-green-700">
                             {review.full_name?.trim()
                               ? review.full_name.trim().charAt(0).toUpperCase()
-                              : "👤"}
+                              : <UserRound size={20} className="text-gray-400" />}
                           </div>
                         )}
 
@@ -1445,7 +1641,7 @@ if (loading) {
                       onClick={() => openReplyForm(review.id, null)}
                       className="mt-3 text-sm font-semibold text-green-700 hover:underline"
                     >
-                      <span aria-hidden="true">↳ </span>Reply
+                      <Reply size={14} className="inline mr-1" /> Reply
                     </button>
 
                     {isReviewReplyActive && (
@@ -1556,7 +1752,7 @@ if (loading) {
             href="/"
             className="font-semibold text-green-700 hover:underline"
           >
-            ← Explore more businesses on TrustNepal
+            <ArrowLeft size={15} className="inline mr-1" /> Explore more businesses on TrustNepal
           </Link>
         </div>
       </div>
