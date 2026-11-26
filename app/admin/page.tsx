@@ -1064,7 +1064,7 @@ export default function AdminPage() {
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = "bold 24px Arial";
-      ctx.fillText("TRUSTNEPAL  Ã¢â‚¬Â¢  SHARE YOUR EXPERIENCE", 600, height - 83);
+      ctx.fillText("TRUSTNEPAL  •  SHARE YOUR EXPERIENCE", 600, height - 83);
 
       const link = document.createElement("a");
       link.download = `${qrCompany.slug}-trustnepal-qr-poster.png`;
@@ -2109,7 +2109,7 @@ export default function AdminPage() {
                                 }}
                                 className="mt-3 text-sm font-semibold text-green-700 hover:text-green-900"
                               >
-                                View All {count} Companies Ã¢â€ â€™
+                                View All {count} Companies →
                               </button>
                             )}
                           </div>
@@ -2234,7 +2234,7 @@ export default function AdminPage() {
                     <p className="mt-2 text-3xl font-extrabold text-green-900">
                       {analyticsTotalReviews > 0
                         ? `${analyticsAverageRating.toFixed(2)} / 5`
-                        : "â€”"}
+                        : "—"}
                     </p>
                   </div>
 
@@ -2262,11 +2262,11 @@ export default function AdminPage() {
                       Best Rated Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsBestCompany?.business_name ?? "â€”"}
+                      {analyticsBestCompany?.business_name ?? "—"}
                     </p>
                     <p className="mt-1 text-sm text-green-700">
                       {analyticsBestCompany
-                        ? `${analyticsBestCompany.average_rating?.toFixed(2)} / 5 Â· ${analyticsBestCompany.review_count} reviews`
+                        ? `${analyticsBestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsBestCompany.review_count} reviews`
                         : "No approved reviews"}
                     </p>
                   </div>
@@ -2276,11 +2276,11 @@ export default function AdminPage() {
                       Lowest Rated Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsLowestCompany?.business_name ?? "â€”"}
+                      {analyticsLowestCompany?.business_name ?? "—"}
                     </p>
                     <p className="mt-1 text-sm text-red-700">
                       {analyticsLowestCompany
-                        ? `${analyticsLowestCompany.average_rating?.toFixed(2)} / 5 Â· ${analyticsLowestCompany.review_count} reviews`
+                        ? `${analyticsLowestCompany.average_rating?.toFixed(2)} / 5 · ${analyticsLowestCompany.review_count} reviews`
                         : "No approved reviews"}
                     </p>
                   </div>
@@ -2290,7 +2290,7 @@ export default function AdminPage() {
                       Most Reviewed Company
                     </p>
                     <p className="mt-2 font-bold text-gray-900">
-                      {analyticsMostReviewedCompany?.business_name ?? "â€”"}
+                      {analyticsMostReviewedCompany?.business_name ?? "—"}
                     </p>
                     <p className="mt-1 text-sm text-blue-700">
                       {analyticsMostReviewedCompany
@@ -2315,7 +2315,7 @@ export default function AdminPage() {
                       return (
                         <div key={rating} className="rounded-lg bg-gray-50 p-3">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-gray-800">{rating}â˜…</span>
+                            <span className="font-bold text-gray-800">{rating}★</span>
                             <span className="text-sm text-gray-600">{count}</span>
                           </div>
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
@@ -2343,9 +2343,9 @@ export default function AdminPage() {
                       onChange={(event) => setAnalyticsTrendPeriod(event.target.value)}
                       className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     >
-                      <option value="daily">Daily Â· Last 7 Days</option>
-                      <option value="weekly">Weekly Â· Last 12 Weeks</option>
-                      <option value="monthly">Monthly Â· Last 12 Months</option>
+                      <option value="daily">Daily · Last 7 Days</option>
+                      <option value="weekly">Weekly · Last 12 Weeks</option>
+                      <option value="monthly">Monthly · Last 12 Months</option>
                     </select>
                   </div>
 
@@ -2409,10 +2409,10 @@ export default function AdminPage() {
                             >
                               <div>
                                 <p className="font-bold text-gray-900">
-                                  {expanded ? "â–¼" : "â–¶"} {company.business_name}
+                                  {expanded ? "▼" : "▶"} {company.business_name}
                                 </p>
                                 <p className="mt-1 text-xs text-gray-500">
-                                  {company.overall_review_count} overall business reviews Â· {company.branches.length} active branches
+                                  {company.overall_review_count} overall business reviews · {company.branches.length} active branches
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -2421,7 +2421,7 @@ export default function AdminPage() {
                                 </span>
                                 <span className="font-bold text-yellow-700">
                                   {company.average_rating !== null
-                                    ? `${company.average_rating.toFixed(2)} â˜…`
+                                    ? `${company.average_rating.toFixed(2)} ★`
                                     : "No rating"}
                                 </span>
                               </div>
@@ -2470,7 +2470,7 @@ export default function AdminPage() {
                                           <th className="px-3 py-3">Reviews</th>
                                           {["5.0", "4.5", "4.0", "3.5", "3.0", "2.5", "2.0", "1.5", "1.0", "0.5"].map((rating) => (
                                             <th key={rating} className="whitespace-nowrap px-2 py-3 text-center">
-                                              {rating}â˜…
+                                              {rating}★
                                             </th>
                                           ))}
                                           <th className="px-3 py-3">Average</th>
@@ -2491,7 +2491,7 @@ export default function AdminPage() {
                                             <td className="px-3 py-3 font-bold text-yellow-700">
                                               {branch.average_rating !== null
                                                 ? `${branch.average_rating.toFixed(2)} / 5`
-                                                : "â€”"}
+                                                : "—"}
                                             </td>
                                           </tr>
                                         ))}
@@ -2623,8 +2623,8 @@ export default function AdminPage() {
                           </h4>
 
                           <p className="mt-1 text-sm text-yellow-600">
-                            {"Ã¢Ëœâ€¦".repeat(review.rating)}
-                            {"Ã¢Ëœâ€ ".repeat(5 - review.rating)}
+                            {"★".repeat(review.rating)}
+                            {"☆".repeat(5 - review.rating)}
                             <span className="ml-2 text-gray-500">
                               ({review.rating}/5)
                             </span>
@@ -2766,7 +2766,7 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="max-w-[220px] whitespace-pre-wrap px-3 py-3 text-gray-600">
-                              {log.reason || "Ã¢â‚¬â€"}
+                              {log.reason || "No reason provided"}
                             </td>
                             <td className="px-3 py-3 text-xs text-gray-500">
                               {new Date(log.created_at).toLocaleString()}
@@ -3470,7 +3470,7 @@ export default function AdminPage() {
                         </p>
                         <p className="mt-1 text-sm text-gray-600">
                           {categories.find((c) => c.id === company.category_id)?.name ?? "Uncategorized"}
-                          {company.location ? ` Ã¢â‚¬Â¢ ${company.location}` : ""}
+                          {company.location ? ` • ${company.location}` : ""}
                         </p>
                         {company.email && (
                           <p className="mt-1 text-sm text-gray-600">Email: {company.email}</p>
