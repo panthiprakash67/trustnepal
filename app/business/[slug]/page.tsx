@@ -293,6 +293,9 @@ function BusinessProfileContent() {
 
   const [rating, setRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewTitleManuallyEdited, setReviewTitleManuallyEdited] = useState(false);
+  const [contactInfoElement, setContactInfoElement] = useState<HTMLDivElement | null>(null);
+  const [contactInfoHeight, setContactInfoHeight] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -300,6 +303,35 @@ function BusinessProfileContent() {
 
   const reviewDraftKey = `trustnepal_review_draft:${slug}`;
   const autoSubmitStarted = useRef(false);
+
+  function getAutoReviewTitle(value: number): string {
+    if (value <= 2) return "Below Average – Needs Improvement";
+    if (value <= 3) return "Average";
+    if (value === 3.5) return "Good";
+    if (value === 4) return "Very Good";
+    if (value === 4.5) return "Excellent";
+    return "Outstanding";
+  }
+
+  useEffect(() => {
+    const element = contactInfoElement;
+    if (!element) {
+      setContactInfoHeight(null);
+      return;
+    }
+
+    const updateHeight = () => {
+      const height = element.getBoundingClientRect().height;
+
+setContactInfoHeight(height);
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [contactInfoElement]);
 
   useEffect(() => {
     if (authLoading || !userId || !business) return;
@@ -326,6 +358,7 @@ function BusinessProfileContent() {
       queueMicrotask(() => {
         setRating(draft.rating);
         setReviewTitle(draft.reviewTitle);
+        setReviewTitleManuallyEdited(true);
         setReviewText(draft.reviewText);
         setSelectedBranchId(draft.selectedBranchId ?? null);
         setSubmitMessage(
@@ -733,6 +766,7 @@ function BusinessProfileContent() {
 
       setRating(5);
       setReviewTitle("");
+      setReviewTitleManuallyEdited(false);
       setReviewText("");
       setSelectedBranchId(null);
 
@@ -993,13 +1027,14 @@ if (loading) {
             business.website ||
             business.facebook_url ||
             business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
-            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 items-start gap-5 md:grid-cols-2">
               {(business.email || business.phone || business.website ||
                 business.facebook_url || business.instagram_url || business.tiktok_url || business.youtube_url || (business.google_maps_url || (business.latitude !== null && business.longitude !== null))) && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                <div ref={setContactInfoElement} className="h-fit self-start rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <h2 className="text-lg font-bold text-gray-900">
                     Contact Information
                   </h2>
+
                   <div className="mt-3 space-y-3">
                     {business.phone && (
                       <p className="text-gray-700">
@@ -1110,13 +1145,22 @@ if (loading) {
               )}
 
               {business.description && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-                  <h2 className="text-lg font-bold text-gray-900">
+                <div
+                  className="flex h-[var(--contact-info-height)] min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5"
+                  style={{
+                    "--contact-info-height": contactInfoHeight
+                      ? `${contactInfoHeight}px`
+                      : "auto",
+                  } as React.CSSProperties}
+                >
+                  <h2 className="shrink-0 text-lg font-bold text-gray-900">
                     Company Description
                   </h2>
-                  <p className="mt-3 leading-7 text-gray-600">
-                    {business.description}
-                  </p>
+                  <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-2">
+                    <p className="whitespace-pre-wrap leading-7 text-gray-600">
+                      {business.description}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1182,7 +1226,12 @@ if (loading) {
                       onClick={(event) => {
                         const rect = event.currentTarget.getBoundingClientRect();
                         const clickedHalf = event.clientX - rect.left < rect.width / 2;
-                        setRating(star - (clickedHalf ? 0.5 : 0));
+                        const nextRating = star - (clickedHalf ? 0.5 : 0);
+                        setRating(nextRating);
+
+                        if (!reviewTitleManuallyEdited) {
+                          setReviewTitle(getAutoReviewTitle(nextRating));
+                        }
                       }}
                       aria-label={`Rate ${star - 0.5} or ${star} out of 5 stars`}
                       className="relative h-9 w-9 overflow-hidden rounded-sm bg-gray-300 transition hover:scale-110"
@@ -1234,8 +1283,11 @@ if (loading) {
                   required
                   maxLength={150}
                   value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
-                  placeholder="Summarize your experience"
+                  onChange={(e) => {
+                    setReviewTitle(e.target.value);
+                    setReviewTitleManuallyEdited(true);
+                  }}
+                  placeholder="Select your rating to generate a review title"
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none focus:border-green-600"
                 />
               </div>
