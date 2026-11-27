@@ -1,10 +1,10 @@
-
+﻿
 "use client";
 
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { MessageSquare, ArrowLeft, MapPin, Reply, ArrowUpRight, UserRound } from "lucide-react";
+import { MessageSquare, ArrowLeft, MapPin, Reply, ArrowUpRight, UserRound, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
 type Business = {
@@ -308,6 +308,7 @@ function BusinessProfileContent() {
   const [reviewTitleManuallyEdited, setReviewTitleManuallyEdited] = useState(false);
   const [contactInfoElement, setContactInfoElement] = useState<HTMLDivElement | null>(null);
   const [contactInfoHeight, setContactInfoHeight] = useState<number | null>(null);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -1342,17 +1343,35 @@ if (loading) {
 
               {business.description && (
                 <div
-                  className="order-2 flex h-[var(--contact-info-height)] min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5 xl:order-3"
+                  className="order-2 flex h-auto min-h-0 flex-col rounded-xl border border-gray-200 bg-gray-50 p-5 xl:h-[var(--contact-info-height)] xl:order-3"
                   style={{
                     "--contact-info-height": contactInfoHeight
                       ? `${contactInfoHeight}px`
                       : "auto",
                   } as React.CSSProperties}
                 >
-                  <h2 className="shrink-0 text-lg font-bold text-gray-900">
-                    Company Description
-                  </h2>
-                  <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-2">
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionExpanded((prev) => !prev)}
+                    className="flex w-full shrink-0 items-center justify-between text-left xl:pointer-events-none"
+                    aria-expanded={descriptionExpanded}
+                  >
+                    <h2 className="text-lg font-bold text-gray-900">
+                      Company Description
+                    </h2>
+                    <span className="xl:hidden">
+                      {descriptionExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-500" />
+                      )}
+                    </span>
+                  </button>
+                  <div
+                    className={`mt-3 min-h-0 flex-1 overflow-y-auto pr-2 max-h-[168px] xl:max-h-none ${
+                      descriptionExpanded ? "block" : "hidden xl:block"
+                    }`}
+                  >
                     <p className="whitespace-pre-wrap leading-7 text-gray-600">
                       {business.description}
                     </p>

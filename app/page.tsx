@@ -474,7 +474,7 @@ export default function Home() {
       {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
         <div className={`mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 ${showStickySearch ? "py-2" : "py-4"} md:py-4`}>
-          <Link href="/" className={`flex shrink-0 items-center ${showStickySearch ? "gap-1.5" : "gap-2"} md:gap-2`}>
+          <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`flex shrink-0 items-center ${showStickySearch ? "gap-1.5" : "gap-2"} md:gap-2`}>
             <div className={`flex items-center justify-center rounded-xl bg-green-700 font-black text-white ${showStickySearch ? "h-8 w-8 text-lg" : "h-10 w-10 text-xl"} md:h-10 md:w-10 md:text-xl`}>
               T
             </div>
@@ -855,7 +855,7 @@ export default function Home() {
                       style={{
                         display: "-webkit-box",
                         WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: 10,
+                        WebkitLineClamp: 5,
                         overflow: "hidden",
                       }}
                     >
